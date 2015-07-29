@@ -8,11 +8,11 @@
     </cm:default-properties>
   </cm:property-placeholder>
 
-  <reference id="NCGenesCASAVAWorkflowBeanService" interface="edu.unc.mapseq.workflow.WorkflowBeanService"
-    component-name="NCGenesCASAVAWorkflowBeanService" />
+  <reference id="NCGenesCASAVAWorkflowBeanService" interface="edu.unc.mapseq.workflow.WorkflowBeanService" component-name="NCGenesCASAVAWorkflowBeanService" />
 
   <bean id="task" class="edu.unc.mapseq.executor.ncgenes.casava.NCGenesCASAVAWorkflowExecutorTask">
     <property name="workflowBeanService" ref="NCGenesCASAVAWorkflowBeanService" />
+    <property name="workflowName" value="NCGenesCASAVA" />
   </bean>
 
   <bean id="NCGenesCASAVAWorkflowExecutorService" class="edu.unc.mapseq.executor.ncgenes.casava.NCGenesCASAVAWorkflowExecutorService"

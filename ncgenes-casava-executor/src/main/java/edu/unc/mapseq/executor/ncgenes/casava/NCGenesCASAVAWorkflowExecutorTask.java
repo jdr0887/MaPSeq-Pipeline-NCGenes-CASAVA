@@ -20,9 +20,11 @@ import edu.unc.mapseq.workflow.ncgenes.casava.NCGenesCASAVAWorkflow;
 
 public class NCGenesCASAVAWorkflowExecutorTask extends TimerTask {
 
-    private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAWorkflowExecutorTask.class);
+    private static final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAWorkflowExecutorTask.class);
 
     private final WorkflowTPE threadPoolExecutor = new WorkflowTPE();
+
+    private String workflowName;
 
     private WorkflowBeanService workflowBeanService;
 
@@ -47,10 +49,10 @@ public class NCGenesCASAVAWorkflowExecutorTask extends TimerTask {
         WorkflowRunAttemptDAO workflowRunAttemptDAO = mapseqDAOBean.getWorkflowRunAttemptDAO();
 
         try {
-            List<Workflow> workflowList = workflowDAO.findByName("CASAVA");
+            List<Workflow> workflowList = workflowDAO.findByName(getWorkflowName());
 
             if (workflowList == null || (workflowList != null && workflowList.isEmpty())) {
-                logger.error("No Workflow Found: {}", "CASAVA");
+                logger.error("No Workflow Found: {}", getWorkflowName());
                 return;
             }
 
@@ -88,6 +90,14 @@ public class NCGenesCASAVAWorkflowExecutorTask extends TimerTask {
 
     public void setWorkflowBeanService(WorkflowBeanService workflowBeanService) {
         this.workflowBeanService = workflowBeanService;
+    }
+
+    public String getWorkflowName() {
+        return workflowName;
+    }
+
+    public void setWorkflowName(String workflowName) {
+        this.workflowName = workflowName;
     }
 
 }
