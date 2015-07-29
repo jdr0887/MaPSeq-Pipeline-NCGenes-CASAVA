@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import edu.unc.mapseq.commons.ncgenes.casava.FixMismappedFastqFileDataRunnable;
 import edu.unc.mapseq.dao.MaPSeqDAOBean;
 
-@Command(scope = "casava", name = "fix-mismapped-fastq-file-data", description = "Fix Mismapped Fastq FileData")
+@Command(scope = "ncgenes-casava", name = "fix-mismapped-fastq-file-data", description = "Fix Mismapped Fastq FileData")
 public class FixMisappedFastqFileDataAction extends AbstractAction {
 
     private final Logger logger = LoggerFactory.getLogger(FixMisappedFastqFileDataAction.class);

@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
 import edu.unc.mapseq.dao.MaPSeqDAOBean;
 
-@Command(scope = "casava", name = "save-demultiplexed-stats-attributes", description = "Save Demultiplexed Stats Attributes")
+@Command(scope = "ncgenes-casava", name = "save-demultiplexed-stats-attributes", description = "Save Demultiplexed Stats Attributes")
 public class SaveDemultiplexedStatsAttributesAction extends AbstractAction {
 
     private final Logger logger = LoggerFactory.getLogger(SaveDemultiplexedStatsAttributesAction.class);
