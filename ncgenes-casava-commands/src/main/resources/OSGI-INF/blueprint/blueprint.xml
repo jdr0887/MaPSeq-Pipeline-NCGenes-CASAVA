@@ -8,7 +8,7 @@
       </action>
     </command>
     <command>
-      <action class="edu.unc.mapseq.commands.ncgenes.casava.RunCASAVAWorkflowAction">
+      <action class="edu.unc.mapseq.commands.ncgenes.casava.RunWorkflowAction">
         <property name="maPSeqDAOBean" ref="maPSeqDAOBean" />
         <property name="maPSeqConfigurationService" ref="maPSeqConfigurationService" />
       </action>
