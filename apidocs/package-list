@@ -1,0 +1,8 @@
+edu.unc.mapseq.commands.ncgenes.casava
+edu.unc.mapseq.commons.ncgenes.casava
+edu.unc.mapseq.executor.ncgenes.casava
+edu.unc.mapseq.messaging.ncgenes.casava
+edu.unc.mapseq.ncgenes.casava
+edu.unc.mapseq.workflow.ncgenes.casava
+edu.unc.mapseq.ws.ncgenes.casava
+edu.unc.mapseq.ws.ncgenes.casava.impl
