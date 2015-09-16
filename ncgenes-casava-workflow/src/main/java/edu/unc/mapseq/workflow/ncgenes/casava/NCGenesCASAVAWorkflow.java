@@ -151,8 +151,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                     throw new WorkflowException("Invalid SampleSheet: ");
                                 }
 
-                                CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, ConfigureBCLToFastqCLI.class, attempt.getId())
-                                        .siteName(siteName);
+                                CondorJobBuilder builder = WorkflowJobFactory.createJob(++count,
+                                        ConfigureBCLToFastqCLI.class, attempt.getId()).siteName(siteName);
                                 builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
                                         .addArgument(ConfigureBCLToFastqCLI.MISMATCHES)
                                         .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL)
@@ -188,6 +188,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                                 logger.debug("readCount = {}", readCount);
 
+                                CondorJob copyRead1Job = null;
+                                CondorJob copyRead2Job = null;
                                 for (Sample sample : laneMap.get(laneIndex)) {
 
                                     File outputDirectory = new File(sample.getOutputDirectory(), getName());
@@ -201,7 +203,6 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                             + sample.getStudy().getName());
                                     File sampleDirectory = new File(projectDirectory, "Sample_" + sample.getName());
 
-                                    CondorJob copyJob = null;
                                     File sourceFile = null;
                                     File outputFile = null;
                                     String outputFileName = null;
@@ -219,10 +220,10 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                             builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyJob = builder.build();
-                                            logger.info(copyJob.toString());
-                                            graph.addVertex(copyJob);
-                                            graph.addEdge(makeJob, copyJob);
+                                            copyRead1Job = builder.build();
+                                            logger.info(copyRead1Job.toString());
+                                            graph.addVertex(copyRead1Job);
+                                            graph.addEdge(makeJob, copyRead1Job);
 
                                             break;
                                         case 2:
@@ -240,10 +241,10 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                             builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyJob = builder.build();
-                                            logger.info(copyJob.toString());
-                                            graph.addVertex(copyJob);
-                                            graph.addEdge(makeJob, copyJob);
+                                            copyRead1Job = builder.build();
+                                            logger.info(copyRead1Job.toString());
+                                            graph.addVertex(copyRead1Job);
+                                            graph.addEdge(makeJob, copyRead1Job);
 
                                             // read 2
                                             builder = WorkflowJobFactory.createJob(++count, CopyCLI.class,
@@ -257,15 +258,27 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                             builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
                                                     .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyJob = builder.build();
-                                            logger.info(copyJob.toString());
-                                            graph.addVertex(copyJob);
-                                            graph.addEdge(makeJob, copyJob);
+                                            copyRead2Job = builder.build();
+                                            logger.info(copyRead2Job.toString());
+                                            graph.addVertex(copyRead2Job);
+                                            graph.addEdge(makeJob, copyRead2Job);
 
                                             break;
                                     }
 
                                 }
+
+                                builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
+                                        .siteName(siteName);
+                                builder.addArgument(RemoveCLI.FILE, unalignedDir);
+                                CondorJob removeUnalignedDirectoryJob = builder.build();
+                                logger.info(removeUnalignedDirectoryJob.toString());
+                                graph.addVertex(removeUnalignedDirectoryJob);
+                                graph.addEdge(removeUnalignedDirectoryJob, copyRead1Job);
+                                if (copyRead2Job != null) {
+                                    graph.addEdge(removeUnalignedDirectoryJob, copyRead2Job);
+                                }
+
                             } catch (Exception e) {
                                 throw new WorkflowException(e);
                             }
