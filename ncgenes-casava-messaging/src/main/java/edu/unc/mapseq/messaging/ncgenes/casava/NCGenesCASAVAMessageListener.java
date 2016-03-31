@@ -27,6 +27,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
@@ -127,7 +128,7 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
         Workflow workflow = null;
         try {
             List<Workflow> workflowList = workflowDAO.findByName(getWorkflowName());
-            if (workflowList == null || (workflowList != null && workflowList.isEmpty())) {
+            if (CollectionUtils.isEmpty(workflowList)) {
                 logger.error("No Workflow Found: {}", getWorkflowName());
                 return;
             }
@@ -139,23 +140,20 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
         try {
 
             for (WorkflowEntity entity : workflowMessage.getEntities()) {
-                if (StringUtils.isNotEmpty(entity.getEntityType())
-                        && Flowcell.class.getSimpleName().equals(entity.getEntityType())) {
+                if (StringUtils.isNotEmpty(entity.getEntityType()) && Flowcell.class.getSimpleName().equals(entity.getEntityType())) {
                     flowcell = getFlowcell(entity);
                 }
             }
 
             for (WorkflowEntity entity : workflowMessage.getEntities()) {
-                if (StringUtils.isNotEmpty(entity.getEntityType())
-                        && WorkflowRun.class.getSimpleName().equals(entity.getEntityType())) {
+                if (StringUtils.isNotEmpty(entity.getEntityType()) && WorkflowRun.class.getSimpleName().equals(entity.getEntityType())) {
                     workflowRun = getWorkflowRun(workflow, entity);
                 }
             }
 
             for (WorkflowEntity entity : workflowMessage.getEntities()) {
 
-                if (StringUtils.isNotEmpty(entity.getEntityType())
-                        && FileData.class.getSimpleName().equals(entity.getEntityType())) {
+                if (StringUtils.isNotEmpty(entity.getEntityType()) && FileData.class.getSimpleName().equals(entity.getEntityType())) {
 
                     Long id = entity.getId();
                     logger.debug("id: {}", id);
@@ -167,8 +165,7 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
                             logger.error("ERROR", e);
                         }
 
-                        if (fileData != null && fileData.getName().endsWith(".csv")
-                                && fileData.getMimeType().equals(MimeType.TEXT_CSV)) {
+                        if (fileData != null && fileData.getName().endsWith(".csv") && fileData.getMimeType().equals(MimeType.TEXT_CSV)) {
 
                             logger.debug("fileData.toString(): {}", fileData.toString());
 
@@ -203,8 +200,8 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
 
                             String flowcellName = fileData.getName().replace(".csv", "");
 
-                            File studyDirectory = new File(System.getenv("MAPSEQ_BASE_DIRECTORY"), studyMap.get(
-                                    studyMap.keySet().iterator().next()).getName());
+                            File studyDirectory = new File(System.getenv("MAPSEQ_BASE_DIRECTORY"),
+                                    studyMap.get(studyMap.keySet().iterator().next()).getName());
                             File baseDirectory = new File(studyDirectory, "out");
                             File flowcellDirectory = new File(baseDirectory, flowcellName);
 
@@ -212,8 +209,7 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
 
                             logger.debug("flowcellDirectory.exists(): {}", flowcellDirectory.exists());
                             if (!flowcellDirectory.exists()) {
-                                logger.warn("expected flowcell directory does not exist: {}",
-                                        flowcellDirectory.getAbsolutePath());
+                                logger.warn("expected flowcell directory does not exist: {}", flowcellDirectory.getAbsolutePath());
                                 return;
                             }
 
@@ -244,15 +240,13 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
 
                                                 logger.info(wr.toString());
 
-                                                List<WorkflowRunAttempt> attempts = workflowRunAttemptDAO
-                                                        .findByWorkflowRunId(wr.getId());
+                                                List<WorkflowRunAttempt> attempts = workflowRunAttemptDAO.findByWorkflowRunId(wr.getId());
 
                                                 if (attempts != null && !attempts.isEmpty()) {
 
                                                     for (WorkflowRunAttempt attempt : attempts) {
                                                         logger.info(attempt.toString());
-                                                        List<Job> jobs = jobDAO.findByWorkflowRunAttemptId(attempt
-                                                                .getId());
+                                                        List<Job> jobs = jobDAO.findByWorkflowRunAttemptId(attempt.getId());
 
                                                         if (jobs != null && !jobs.isEmpty()) {
                                                             for (Job job : jobs) {
@@ -322,8 +316,7 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
                                     sample.setStudy(studyMap.get(sampleProject));
 
                                     if (StringUtils.isNotEmpty(description)) {
-                                        sample.getAttributes().add(
-                                                new Attribute("production.id.description", description));
+                                        sample.getAttributes().add(new Attribute("production.id.description", description));
                                     }
 
                                     sampleDAO.save(sample);
@@ -418,22 +411,17 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
             flowcellSet.add(flowcell);
             workflowRun.setFlowcells(flowcellSet);
 
-            Long workflowRunId = workflowRunDAO.save(workflowRun);
-            workflowRun.setId(workflowRunId);
+            workflowRun.setId(workflowRunDAO.save(workflowRun));
 
-        } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException
-                | MaPSeqDAOException | IOException e) {
-            status = WorkflowRunAttemptStatusType.FAILED;
-            logger.warn("Error", e);
-        }
-
-        try {
             WorkflowRunAttempt attempt = new WorkflowRunAttempt();
             attempt.setStatus(status);
             attempt.setWorkflowRun(workflowRun);
             workflowRunAttemptDAO.save(attempt);
-        } catch (MaPSeqDAOException e) {
-            e.printStackTrace();
+
+        } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException | MaPSeqDAOException
+                | IOException e) {
+            status = WorkflowRunAttemptStatusType.FAILED;
+            logger.warn("Error", e);
         }
     }
 
