@@ -44,7 +44,7 @@ import edu.unc.mapseq.config.MaPSeqConfigurationService;
 import edu.unc.mapseq.config.MaPSeqConfigurationServiceImpl;
 import edu.unc.mapseq.dao.AttributeDAO;
 import edu.unc.mapseq.dao.FlowcellDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.SampleDAO;
 import edu.unc.mapseq.dao.WorkflowDAO;
@@ -58,11 +58,11 @@ import edu.unc.mapseq.dao.model.Workflow;
 import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
 import edu.unc.mapseq.dao.model.WorkflowRunAttemptStatusType;
-import edu.unc.mapseq.dao.ws.WSDAOManager;
+import edu.unc.mapseq.dao.soap.SOAPDAOManager;
 import edu.unc.mapseq.workflow.WorkflowBeanService;
 import edu.unc.mapseq.workflow.WorkflowExecutor;
-import edu.unc.mapseq.workflow.ncgenes.casava.NCGenesCASAVAWorkflow;
 import edu.unc.mapseq.workflow.impl.WorkflowBeanServiceImpl;
+import edu.unc.mapseq.workflow.ncgenes.casava.NCGenesCASAVAWorkflow;
 
 public class RunWorkflow implements Runnable {
 
@@ -87,15 +87,15 @@ public class RunWorkflow implements Runnable {
     @Override
     public void run() {
 
-        WSDAOManager daoMgr = WSDAOManager.getInstance();
-        MaPSeqDAOBean maPSeqDAOBean = daoMgr.getMaPSeqDAOBean();
+        SOAPDAOManager daoMgr = SOAPDAOManager.getInstance();
+        MaPSeqDAOBeanService maPSeqDAOBeanService = daoMgr.getMaPSeqDAOBeanService();
 
-        AttributeDAO attributeDAO = maPSeqDAOBean.getAttributeDAO();
-        FlowcellDAO flowcellDAO = maPSeqDAOBean.getFlowcellDAO();
-        SampleDAO sampleDAO = maPSeqDAOBean.getSampleDAO();
-        WorkflowDAO workflowDAO = maPSeqDAOBean.getWorkflowDAO();
-        WorkflowRunDAO workflowRunDAO = maPSeqDAOBean.getWorkflowRunDAO();
-        WorkflowRunAttemptDAO workflowRunAttemptDAO = maPSeqDAOBean.getWorkflowRunAttemptDAO();
+        AttributeDAO attributeDAO = maPSeqDAOBeanService.getAttributeDAO();
+        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
+        SampleDAO sampleDAO = maPSeqDAOBeanService.getSampleDAO();
+        WorkflowDAO workflowDAO = maPSeqDAOBeanService.getWorkflowDAO();
+        WorkflowRunDAO workflowRunDAO = maPSeqDAOBeanService.getWorkflowRunDAO();
+        WorkflowRunAttemptDAO workflowRunAttemptDAO = maPSeqDAOBeanService.getWorkflowRunAttemptDAO();
 
         if (this.flowcellId == null && this.sampleId == null) {
             System.err.println("Both flowcellId and sampleId can't be null");
@@ -168,15 +168,14 @@ public class RunWorkflow implements Runnable {
             attempt.setId(attemptId);
 
             MaPSeqConfigurationService configService = new MaPSeqConfigurationServiceImpl();
-            System.out.println("Please watch " + System.getenv("MAPSEQ_HOME")
-                    + "/logs/mapseq.log for state changes and/or progress");
+            System.out.println("Please watch " + System.getenv("MAPSEQ_CLIENT_HOME") + "/logs/mapseq.log for state changes and/or progress");
             WorkflowBeanService workflowBeanService = new WorkflowBeanServiceImpl();
 
             Map<String, String> attributeMap = new HashMap<String, String>();
             attributeMap.put("siteName", "Kure");
             workflowBeanService.setAttributes(attributeMap);
             workflowBeanService.setMaPSeqConfigurationService(configService);
-            workflowBeanService.setMaPSeqDAOBean(daoMgr.getMaPSeqDAOBean());
+            workflowBeanService.setMaPSeqDAOBeanService(daoMgr.getMaPSeqDAOBeanService());
 
             File baseDir = new File(flowcell.getBaseDirectory());
             File flowcellDir = new File(baseDir, flowcell.getName());
@@ -246,8 +245,7 @@ public class RunWorkflow implements Runnable {
 
                 flowcell.setAttributes(attributes);
 
-            } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException
-                    | IOException e1) {
+            } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException | IOException e1) {
                 e1.printStackTrace();
             }
 
@@ -267,8 +265,7 @@ public class RunWorkflow implements Runnable {
                 }
             }
 
-            StringBuilder sb = new StringBuilder(
-                    "FCID,Lane,SampleID,SampleRef,Index,Description,Control,Recipe,Operator,SampleProject\n");
+            StringBuilder sb = new StringBuilder("FCID,Lane,SampleID,SampleRef,Index,Description,Control,Recipe,Operator,SampleProject\n");
             Collections.sort(data, new Comparator<Vector<String>>() {
                 @Override
                 public int compare(Vector<String> arg0, Vector<String> arg1) {
@@ -279,8 +276,8 @@ public class RunWorkflow implements Runnable {
             Iterator<Vector<String>> dataIter = data.iterator();
             while (dataIter.hasNext()) {
                 Vector<String> values = dataIter.next();
-                sb.append(String.format("%s,%s,%s,,%s,,,,,%s%n", flowcellProper, values.get(0), values.get(1),
-                        values.get(2), values.get(3)));
+                sb.append(
+                        String.format("%s,%s,%s,,%s,,,,,%s%n", flowcellProper, values.get(0), values.get(1), values.get(2), values.get(3)));
             }
 
             File sampleSheetFile = new File(baseCallsDir, "SampleSheet.csv");
@@ -359,12 +356,11 @@ public class RunWorkflow implements Runnable {
 
     @SuppressWarnings("static-access")
     public static void main(String[] args) {
-        cliOptions.addOption(OptionBuilder.withArgName("sampleId").hasArg().withDescription("Sample identifier")
-                .withLongOpt("sampleId").create());
-        cliOptions.addOption(OptionBuilder.withArgName("flowcellId").hasArg().withDescription("Flowcell identifier")
-                .withLongOpt("flowcellId").create());
-        cliOptions.addOption(OptionBuilder.withArgName("workflowRunName").withLongOpt("workflowRunName").isRequired()
-                .hasArg().create());
+        cliOptions.addOption(
+                OptionBuilder.withArgName("sampleId").hasArg().withDescription("Sample identifier").withLongOpt("sampleId").create());
+        cliOptions.addOption(
+                OptionBuilder.withArgName("flowcellId").hasArg().withDescription("Flowcell identifier").withLongOpt("flowcellId").create());
+        cliOptions.addOption(OptionBuilder.withArgName("workflowRunName").withLongOpt("workflowRunName").isRequired().hasArg().create());
         cliOptions.addOption(OptionBuilder.withArgName("propertyFile").withLongOpt("propertyFile").hasArg().create());
 
         RunWorkflow main = new RunWorkflow();

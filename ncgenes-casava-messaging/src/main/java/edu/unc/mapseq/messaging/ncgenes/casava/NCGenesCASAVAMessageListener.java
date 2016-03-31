@@ -40,7 +40,7 @@ import edu.unc.mapseq.dao.AttributeDAO;
 import edu.unc.mapseq.dao.FileDataDAO;
 import edu.unc.mapseq.dao.FlowcellDAO;
 import edu.unc.mapseq.dao.JobDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.SampleDAO;
 import edu.unc.mapseq.dao.StudyDAO;
@@ -59,11 +59,11 @@ import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
 import edu.unc.mapseq.dao.model.WorkflowRunAttemptStatusType;
 import edu.unc.mapseq.workflow.WorkflowException;
-import edu.unc.mapseq.workflow.impl.AbstractMessageListener;
+import edu.unc.mapseq.workflow.impl.AbstractSampleMessageListener;
 import edu.unc.mapseq.workflow.model.WorkflowEntity;
 import edu.unc.mapseq.workflow.model.WorkflowMessage;
 
-public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
+public class NCGenesCASAVAMessageListener extends AbstractSampleMessageListener {
 
     private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageListener.class);
 
@@ -108,7 +108,7 @@ public class NCGenesCASAVAMessageListener extends AbstractMessageListener {
             return;
         }
 
-        MaPSeqDAOBean daoBean = getWorkflowBeanService().getMaPSeqDAOBean();
+        MaPSeqDAOBeanService daoBean = getWorkflowBeanService().getMaPSeqDAOBeanService();
 
         JobDAO jobDAO = daoBean.getJobDAO();
         FlowcellDAO flowcellDAO = daoBean.getFlowcellDAO();

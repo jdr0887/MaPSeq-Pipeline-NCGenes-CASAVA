@@ -24,18 +24,17 @@ import org.slf4j.LoggerFactory;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveObservedClusterDensityAttributesRunnable;
 import edu.unc.mapseq.dao.FlowcellDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
-import edu.unc.mapseq.dao.SampleDAO;
 import edu.unc.mapseq.dao.model.Attribute;
 import edu.unc.mapseq.dao.model.Flowcell;
 import edu.unc.mapseq.dao.model.MimeType;
 import edu.unc.mapseq.dao.model.Sample;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
-import edu.unc.mapseq.module.casava.ConfigureBCLToFastqCLI;
-import edu.unc.mapseq.module.core.CopyCLI;
+import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.MakeCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
+import edu.unc.mapseq.module.sequencing.casava.ConfigureBCLToFastqCLI;
 import edu.unc.mapseq.workflow.WorkflowException;
 import edu.unc.mapseq.workflow.impl.AbstractSampleWorkflow;
 import edu.unc.mapseq.workflow.impl.WorkflowJobFactory;
@@ -64,20 +63,16 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
     public Graph<CondorJob, CondorJobEdge> createGraph() throws WorkflowException {
         logger.debug("ENTERING createGraph()");
 
-        DirectedGraph<CondorJob, CondorJobEdge> graph = new DefaultDirectedGraph<CondorJob, CondorJobEdge>(
-                CondorJobEdge.class);
+        DirectedGraph<CondorJob, CondorJobEdge> graph = new DefaultDirectedGraph<CondorJob, CondorJobEdge>(CondorJobEdge.class);
 
         int count = 0;
-
-        MaPSeqDAOBean mapseqDAOBean = getWorkflowBeanService().getMaPSeqDAOBean();
-        FlowcellDAO flowcellDAO = mapseqDAOBean.getFlowcellDAO();
-        SampleDAO sampleDAO = mapseqDAOBean.getSampleDAO();
 
         WorkflowRunAttempt attempt = getWorkflowRunAttempt();
 
         try {
 
-            List<Flowcell> flowcellList = flowcellDAO.findByWorkflowRunId(attempt.getWorkflowRun().getId());
+            List<Flowcell> flowcellList = getWorkflowBeanService().getMaPSeqDAOBeanService().getFlowcellDAO()
+                    .findByWorkflowRunId(attempt.getWorkflowRun().getId());
 
             if (flowcellList != null && !flowcellList.isEmpty()) {
                 for (Flowcell flowcell : flowcellList) {
@@ -88,7 +83,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                     File intensitiesDir = new File(dataDir, "Intensities");
                     File baseCallsDir = new File(intensitiesDir, "BaseCalls");
 
-                    List<Sample> sampleList = sampleDAO.findByFlowcellId(flowcell.getId());
+                    List<Sample> sampleList = getWorkflowBeanService().getMaPSeqDAOBeanService().getSampleDAO()
+                            .findByFlowcellId(flowcell.getId());
 
                     Map<Integer, List<Sample>> laneMap = new HashMap<Integer, List<Sample>>();
 
@@ -97,8 +93,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                         logger.info("sampleList.size() = {}", sampleList.size());
 
                         for (Sample sample : sampleList) {
-                            if (laneMap.containsKey(sample.getLaneIndex())
-                                    || "Undetermined".equals(sample.getBarcode())) {
+                            if (laneMap.containsKey(sample.getLaneIndex()) || "Undetermined".equals(sample.getBarcode())) {
                                 continue;
                             }
                             laneMap.put(sample.getLaneIndex(), new ArrayList<Sample>());
@@ -120,8 +115,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                             try {
 
-                                File unalignedDir = new File(flowcellDir,
-                                        String.format("%s.%d", "Unaligned", laneIndex));
+                                File unalignedDir = new File(flowcellDir, String.format("%s.%d", "Unaligned", laneIndex));
 
                                 Set<Attribute> flowcellAttributeSet = flowcell.getAttributes();
 
@@ -146,30 +140,26 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                 }
 
                                 if (!sampleSheetFile.exists()) {
-                                    logger.error("Specified sample sheet doesn't exist: {}",
-                                            sampleSheetFile.getAbsolutePath());
+                                    logger.error("Specified sample sheet doesn't exist: {}", sampleSheetFile.getAbsolutePath());
                                     throw new WorkflowException("Invalid SampleSheet: ");
                                 }
 
-                                CondorJobBuilder builder = WorkflowJobFactory.createJob(++count,
-                                        ConfigureBCLToFastqCLI.class, attempt.getId()).siteName(siteName);
+                                CondorJobBuilder builder = WorkflowJobFactory
+                                        .createJob(++count, ConfigureBCLToFastqCLI.class, attempt.getId()).siteName(siteName);
                                 builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
-                                        .addArgument(ConfigureBCLToFastqCLI.MISMATCHES)
-                                        .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL)
+                                        .addArgument(ConfigureBCLToFastqCLI.MISMATCHES).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL)
                                         .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGSTATS)
                                         .addArgument(ConfigureBCLToFastqCLI.FASTQCLUSTERCOUNT, "0")
                                         .addArgument(ConfigureBCLToFastqCLI.TILES, laneIndex.toString())
                                         .addArgument(ConfigureBCLToFastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
-                                        .addArgument(ConfigureBCLToFastqCLI.SAMPLESHEET,
-                                                sampleSheetFile.getAbsolutePath())
+                                        .addArgument(ConfigureBCLToFastqCLI.SAMPLESHEET, sampleSheetFile.getAbsolutePath())
                                         .addArgument(ConfigureBCLToFastqCLI.FORCE);
                                 CondorJob configureBCLToFastQJob = builder.build();
                                 logger.info(configureBCLToFastQJob.toString());
                                 graph.addVertex(configureBCLToFastQJob);
 
                                 if (unalignedDir.exists()) {
-                                    builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
-                                            .siteName(siteName);
+                                    builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
                                     builder.addArgument(RemoveCLI.FILE, unalignedDir);
                                     CondorJob removeUnalignedDirectoryJob = builder.build();
                                     logger.info(removeUnalignedDirectoryJob.toString());
@@ -177,10 +167,9 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                     graph.addEdge(removeUnalignedDirectoryJob, configureBCLToFastQJob);
                                 }
 
-                                builder = WorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId())
-                                        .siteName(siteName).numberOfProcessors(2);
-                                builder.addArgument(MakeCLI.THREADS, "2").addArgument(MakeCLI.WORKDIR,
-                                        unalignedDir.getAbsolutePath());
+                                builder = WorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId()).siteName(siteName)
+                                        .numberOfProcessors(2);
+                                builder.addArgument(MakeCLI.THREADS, "2").addArgument(MakeCLI.WORKDIR, unalignedDir.getAbsolutePath());
                                 CondorJob makeJob = builder.build();
                                 logger.info(makeJob.toString());
                                 graph.addVertex(makeJob);
@@ -196,11 +185,9 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                     File tmpDirectory = new File(outputDirectory, "tmp");
                                     tmpDirectory.mkdirs();
 
-                                    logger.info("outputDirectory.getAbsolutePath(): {}",
-                                            outputDirectory.getAbsolutePath());
+                                    logger.info("outputDirectory.getAbsolutePath(): {}", outputDirectory.getAbsolutePath());
 
-                                    File projectDirectory = new File(unalignedDir, "Project_"
-                                            + sample.getStudy().getName());
+                                    File projectDirectory = new File(unalignedDir, "Project_" + sample.getStudy().getName());
                                     File sampleDirectory = new File(projectDirectory, "Sample_" + sample.getName());
 
                                     File sourceFile = null;
@@ -209,17 +196,17 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                                     switch (readCount) {
                                         case 1:
-                                            builder = WorkflowJobFactory.createJob(++count, CopyCLI.class,
-                                                    attempt.getId(), sample.getId()).siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format(
-                                                    "%s_%s_L%03d_R%d_001.fastq.gz", sample.getName(),
-                                                    sample.getBarcode(), laneIndex, 1));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz",
-                                                    flowcell.getName(), sample.getBarcode(), laneIndex, 1);
+                                            builder = WorkflowJobFactory
+                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
+                                                    .siteName(siteName);
+                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                                    sample.getName(), sample.getBarcode(), laneIndex, 1));
+                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                                    sample.getBarcode(), laneIndex, 1);
                                             outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
                                             copyRead1Job = builder.build();
                                             logger.info(copyRead1Job.toString());
                                             graph.addVertex(copyRead1Job);
@@ -230,34 +217,34 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                         default:
 
                                             // read 1
-                                            builder = WorkflowJobFactory.createJob(++count, CopyCLI.class,
-                                                    attempt.getId(), sample.getId()).siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format(
-                                                    "%s_%s_L%03d_R%d_001.fastq.gz", sample.getName(),
-                                                    sample.getBarcode(), laneIndex, 1));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz",
-                                                    flowcell.getName(), sample.getBarcode(), laneIndex, 1);
+                                            builder = WorkflowJobFactory
+                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
+                                                    .siteName(siteName);
+                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                                    sample.getName(), sample.getBarcode(), laneIndex, 1));
+                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                                    sample.getBarcode(), laneIndex, 1);
                                             outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
                                             copyRead1Job = builder.build();
                                             logger.info(copyRead1Job.toString());
                                             graph.addVertex(copyRead1Job);
                                             graph.addEdge(makeJob, copyRead1Job);
 
                                             // read 2
-                                            builder = WorkflowJobFactory.createJob(++count, CopyCLI.class,
-                                                    attempt.getId(), sample.getId()).siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format(
-                                                    "%s_%s_L%03d_R%d_001.fastq.gz", sample.getName(),
-                                                    sample.getBarcode(), laneIndex, 2));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz",
-                                                    flowcell.getName(), sample.getBarcode(), laneIndex, 2);
+                                            builder = WorkflowJobFactory
+                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
+                                                    .siteName(siteName);
+                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                                    sample.getName(), sample.getBarcode(), laneIndex, 2));
+                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                                    sample.getBarcode(), laneIndex, 2);
                                             outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
                                             copyRead2Job = builder.build();
                                             logger.info(copyRead2Job.toString());
                                             graph.addVertex(copyRead2Job);
@@ -268,8 +255,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                                 }
 
-                                builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
-                                        .siteName(siteName);
+                                builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
                                 builder.addArgument(RemoveCLI.FILE, unalignedDir);
                                 CondorJob removeUnalignedDirectoryJob = builder.build();
                                 logger.info(removeUnalignedDirectoryJob.toString());
@@ -299,8 +285,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
     @Override
     public void postRun() throws WorkflowException {
 
-        MaPSeqDAOBean mapseqDAOBean = getWorkflowBeanService().getMaPSeqDAOBean();
-        FlowcellDAO flowcellDAO = mapseqDAOBean.getFlowcellDAO();
+        MaPSeqDAOBeanService maPSeqDAOBeanService = getWorkflowBeanService().getMaPSeqDAOBeanService();
+        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
         List<Long> flowcellIdList = new ArrayList<Long>();
 
         WorkflowRunAttempt attempt = getWorkflowRunAttempt();
@@ -328,14 +314,14 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
             // executorService.submit(fixMismappedFastqFileDataRunnable);
 
             SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable();
-            saveDemultiplexedStatsAttributesRunnable.setMapseqDAOBean(getWorkflowBeanService().getMaPSeqDAOBean());
+            saveDemultiplexedStatsAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
             saveDemultiplexedStatsAttributesRunnable.setFlowcellIdList(flowcellIdList);
             executorService.submit(saveDemultiplexedStatsAttributesRunnable);
 
             SaveObservedClusterDensityAttributesRunnable saveObservedClusterDensityAttributesRunnable = new SaveObservedClusterDensityAttributesRunnable();
-            saveObservedClusterDensityAttributesRunnable.setMapseqDAOBean(getWorkflowBeanService().getMaPSeqDAOBean());
-            saveObservedClusterDensityAttributesRunnable.setMapseqConfigurationService(getWorkflowBeanService()
-                    .getMaPSeqConfigurationService());
+            saveObservedClusterDensityAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
+            saveObservedClusterDensityAttributesRunnable
+                    .setMaPSeqConfigurationService(getWorkflowBeanService().getMaPSeqConfigurationService());
             saveObservedClusterDensityAttributesRunnable.setFlowcellIdList(flowcellIdList);
             executorService.submit(saveObservedClusterDensityAttributesRunnable);
 

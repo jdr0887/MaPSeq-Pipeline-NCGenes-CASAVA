@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 import edu.unc.mapseq.config.MaPSeqConfigurationService;
 import edu.unc.mapseq.dao.AttributeDAO;
 import edu.unc.mapseq.dao.FlowcellDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
 import edu.unc.mapseq.dao.model.Flowcell;
@@ -30,9 +30,9 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
 
     private final Logger logger = LoggerFactory.getLogger(SaveObservedClusterDensityAttributesRunnable.class);
 
-    private MaPSeqDAOBean mapseqDAOBean;
+    private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
-    private MaPSeqConfigurationService mapseqConfigurationService;
+    private MaPSeqConfigurationService maPSeqConfigurationService;
 
     private List<Long> flowcellIdList;
 
@@ -44,8 +44,8 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
     public void run() {
         logger.debug("ENTERING run()");
 
-        FlowcellDAO flowcellDAO = mapseqDAOBean.getFlowcellDAO();
-        AttributeDAO attributeDAO = mapseqDAOBean.getAttributeDAO();
+        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
+        AttributeDAO attributeDAO = maPSeqDAOBeanService.getAttributeDAO();
 
         List<Flowcell> fList = new ArrayList<Flowcell>();
 
@@ -76,7 +76,7 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
 
                 try {
 
-                    List<Sample> sampleList = mapseqDAOBean.getSampleDAO().findByFlowcellId(flowcell.getId());
+                    List<Sample> sampleList = maPSeqDAOBeanService.getSampleDAO().findByFlowcellId(flowcell.getId());
                     Map<Integer, List<Double>> laneClusterDensityTotalMap = new HashMap<Integer, List<Double>>();
 
                     for (Sample sample : sampleList) {
@@ -101,8 +101,7 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
                     br.close();
 
                     for (Sample sample : sampleList) {
-                        List<Double> laneClusterDensityTotalList = laneClusterDensityTotalMap
-                                .get(sample.getLaneIndex());
+                        List<Double> laneClusterDensityTotalList = laneClusterDensityTotalMap.get(sample.getLaneIndex());
                         long clusterDensityTotal = 0;
                         for (Double clusterDensity : laneClusterDensityTotalList) {
                             clusterDensityTotal += clusterDensity;
@@ -138,7 +137,7 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
                             }
                         }
                         sample.setAttributes(attributeSet);
-                        mapseqDAOBean.getSampleDAO().save(sample);
+                        maPSeqDAOBeanService.getSampleDAO().save(sample);
                     }
 
                 } catch (FileNotFoundException e) {
@@ -153,20 +152,20 @@ public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
         }
     }
 
-    public MaPSeqDAOBean getMapseqDAOBean() {
-        return mapseqDAOBean;
+    public MaPSeqDAOBeanService getMaPSeqDAOBeanService() {
+        return maPSeqDAOBeanService;
     }
 
-    public void setMapseqDAOBean(MaPSeqDAOBean mapseqDAOBean) {
-        this.mapseqDAOBean = mapseqDAOBean;
+    public void setMaPSeqDAOBeanService(MaPSeqDAOBeanService maPSeqDAOBeanService) {
+        this.maPSeqDAOBeanService = maPSeqDAOBeanService;
     }
 
-    public MaPSeqConfigurationService getMapseqConfigurationService() {
-        return mapseqConfigurationService;
+    public MaPSeqConfigurationService getMaPSeqConfigurationService() {
+        return maPSeqConfigurationService;
     }
 
-    public void setMapseqConfigurationService(MaPSeqConfigurationService mapseqConfigurationService) {
-        this.mapseqConfigurationService = mapseqConfigurationService;
+    public void setMaPSeqConfigurationService(MaPSeqConfigurationService maPSeqConfigurationService) {
+        this.maPSeqConfigurationService = maPSeqConfigurationService;
     }
 
     public List<Long> getFlowcellIdList() {

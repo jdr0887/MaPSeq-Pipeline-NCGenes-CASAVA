@@ -32,7 +32,7 @@ import org.xml.sax.SAXException;
 
 import edu.unc.mapseq.dao.AttributeDAO;
 import edu.unc.mapseq.dao.FlowcellDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
 import edu.unc.mapseq.dao.model.Flowcell;
@@ -40,9 +40,9 @@ import edu.unc.mapseq.dao.model.Sample;
 
 public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
 
-    private final Logger logger = LoggerFactory.getLogger(SaveDemultiplexedStatsAttributesRunnable.class);
+    private static final Logger logger = LoggerFactory.getLogger(SaveDemultiplexedStatsAttributesRunnable.class);
 
-    private MaPSeqDAOBean mapseqDAOBean;
+    private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
     private List<Long> flowcellIdList;
 
@@ -54,8 +54,8 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
     public void run() {
         logger.debug("ENTERING run()");
 
-        FlowcellDAO flowcellDAO = mapseqDAOBean.getFlowcellDAO();
-        AttributeDAO attributeDAO = mapseqDAOBean.getAttributeDAO();
+        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
+        AttributeDAO attributeDAO = maPSeqDAOBeanService.getAttributeDAO();
 
         List<Flowcell> fList = new ArrayList<Flowcell>();
 
@@ -89,17 +89,15 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
 
                         // find the flowcell
                         String runFlowcellIdPath = "/RunInfo/Run/Flowcell";
-                        Node runFlowcellIdNode = (Node) xpath
-                                .evaluate(runFlowcellIdPath, document, XPathConstants.NODE);
+                        Node runFlowcellIdNode = (Node) xpath.evaluate(runFlowcellIdPath, document, XPathConstants.NODE);
                         flowcellProper = runFlowcellIdNode.getTextContent();
                         logger.debug("flowcell = {}", flowcellProper);
 
-                    } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException
-                            | IOException e) {
+                    } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException | IOException e) {
                         e.printStackTrace();
                     }
 
-                    List<Sample> sampleList = mapseqDAOBean.getSampleDAO().findByFlowcellId(flowcell.getId());
+                    List<Sample> sampleList = maPSeqDAOBeanService.getSampleDAO().findByFlowcellId(flowcell.getId());
 
                     if (sampleList == null) {
                         logger.warn("sampleList was null");
@@ -109,8 +107,7 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
                     for (Sample sample : sampleList) {
 
                         File unalignedDir = new File(flowcellDir, String.format("Unaligned.%d", sample.getLaneIndex()));
-                        File baseCallStatsDir = new File(unalignedDir, String.format("Basecall_Stats_%s",
-                                flowcellProper));
+                        File baseCallStatsDir = new File(unalignedDir, String.format("Basecall_Stats_%s", flowcellProper));
                         File statsFile = new File(baseCallStatsDir, "Demultiplex_Stats.htm");
 
                         if (!statsFile.exists()) {
@@ -293,15 +290,14 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
                                                 }
                                             }
                                         } else {
-                                            Attribute attribute = new Attribute("meanQualityScorePassingFiltering",
-                                                    value);
+                                            Attribute attribute = new Attribute("meanQualityScorePassingFiltering", value);
                                             attribute.setId(attributeDAO.save(attribute));
                                             attributeSet.add(attribute);
                                         }
                                     }
 
                                     sample.setAttributes(attributeSet);
-                                    mapseqDAOBean.getSampleDAO().save(sample);
+                                    maPSeqDAOBeanService.getSampleDAO().save(sample);
                                     System.out.println(String.format("Successfully saved sample: %s", sample.getId()));
                                     logger.info(sample.toString());
                                 }
@@ -326,12 +322,12 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
         }
     }
 
-    public MaPSeqDAOBean getMapseqDAOBean() {
-        return mapseqDAOBean;
+    public MaPSeqDAOBeanService getMaPSeqDAOBeanService() {
+        return maPSeqDAOBeanService;
     }
 
-    public void setMapseqDAOBean(MaPSeqDAOBean mapseqDAOBean) {
-        this.mapseqDAOBean = mapseqDAOBean;
+    public void setMaPSeqDAOBeanService(MaPSeqDAOBeanService maPSeqDAOBeanService) {
+        this.maPSeqDAOBeanService = maPSeqDAOBeanService;
     }
 
     public List<Long> getFlowcellIdList() {

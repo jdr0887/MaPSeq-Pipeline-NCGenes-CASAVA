@@ -14,14 +14,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
 import edu.unc.mapseq.dao.FlowcellDAO;
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.SampleDAO;
 import edu.unc.mapseq.dao.StudyDAO;
 import edu.unc.mapseq.dao.model.Flowcell;
 import edu.unc.mapseq.dao.model.Sample;
 import edu.unc.mapseq.dao.model.Study;
-import edu.unc.mapseq.dao.ws.WSDAOManager;
+import edu.unc.mapseq.dao.soap.SOAPDAOManager;
 
 public class CreateFlowcellTest {
 
@@ -40,12 +40,12 @@ public class CreateFlowcellTest {
     @Test
     public void testRun() {
 
-        WSDAOManager daoMgr = WSDAOManager.getInstance();
-        MaPSeqDAOBean maPSeqDAOBean = daoMgr.getMaPSeqDAOBean();
+        SOAPDAOManager daoMgr = SOAPDAOManager.getInstance();
+        MaPSeqDAOBeanService maPSeqDAOBeanService = daoMgr.getMaPSeqDAOBeanService();
 
-        FlowcellDAO flowcellDAO = maPSeqDAOBean.getFlowcellDAO();
-        SampleDAO sampleDAO = maPSeqDAOBean.getSampleDAO();
-        StudyDAO studyDAO = maPSeqDAOBean.getStudyDAO();
+        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
+        SampleDAO sampleDAO = maPSeqDAOBeanService.getSampleDAO();
+        StudyDAO studyDAO = maPSeqDAOBeanService.getStudyDAO();
 
         try {
             String sampleSheetContent = IOUtils.toString(this.getClass().getClassLoader()

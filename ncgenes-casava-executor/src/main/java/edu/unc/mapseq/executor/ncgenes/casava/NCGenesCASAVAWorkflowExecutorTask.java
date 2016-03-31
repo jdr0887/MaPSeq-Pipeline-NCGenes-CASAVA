@@ -4,10 +4,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimerTask;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.unc.mapseq.dao.MaPSeqDAOBean;
+import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.WorkflowDAO;
 import edu.unc.mapseq.dao.WorkflowRunAttemptDAO;
@@ -39,19 +40,18 @@ public class NCGenesCASAVAWorkflowExecutorTask extends TimerTask {
         threadPoolExecutor.setCorePoolSize(workflowBeanService.getCorePoolSize());
         threadPoolExecutor.setMaximumPoolSize(workflowBeanService.getMaxPoolSize());
 
-        logger.info(String.format("ActiveCount: %d, TaskCount: %d, CompletedTaskCount: %d",
-                threadPoolExecutor.getActiveCount(), threadPoolExecutor.getTaskCount(),
-                threadPoolExecutor.getCompletedTaskCount()));
+        logger.info(String.format("ActiveCount: %d, TaskCount: %d, CompletedTaskCount: %d", threadPoolExecutor.getActiveCount(),
+                threadPoolExecutor.getTaskCount(), threadPoolExecutor.getCompletedTaskCount()));
 
-        MaPSeqDAOBean mapseqDAOBean = this.workflowBeanService.getMaPSeqDAOBean();
+        MaPSeqDAOBeanService maPSeqDAOBeanService = this.workflowBeanService.getMaPSeqDAOBeanService();
 
-        WorkflowDAO workflowDAO = mapseqDAOBean.getWorkflowDAO();
-        WorkflowRunAttemptDAO workflowRunAttemptDAO = mapseqDAOBean.getWorkflowRunAttemptDAO();
+        WorkflowDAO workflowDAO = maPSeqDAOBeanService.getWorkflowDAO();
+        WorkflowRunAttemptDAO workflowRunAttemptDAO = maPSeqDAOBeanService.getWorkflowRunAttemptDAO();
 
         try {
             List<Workflow> workflowList = workflowDAO.findByName(getWorkflowName());
 
-            if (workflowList == null || (workflowList != null && workflowList.isEmpty())) {
+            if (CollectionUtils.isEmpty(workflowList)) {
                 logger.error("No Workflow Found: {}", getWorkflowName());
                 return;
             }
@@ -60,7 +60,7 @@ public class NCGenesCASAVAWorkflowExecutorTask extends TimerTask {
 
             List<WorkflowRunAttempt> attempts = workflowRunAttemptDAO.findEnqueued(workflow.getId());
 
-            if (attempts != null && !attempts.isEmpty()) {
+            if (CollectionUtils.isNotEmpty(attempts)) {
 
                 logger.info("dequeuing {} WorkflowRunAttempt", attempts.size());
                 for (WorkflowRunAttempt attempt : attempts) {

@@ -12,9 +12,9 @@ import org.renci.jlrm.condor.CondorJob;
 import org.renci.jlrm.condor.CondorJobEdge;
 import org.renci.jlrm.condor.ext.CondorDOTExporter;
 
-import edu.unc.mapseq.module.casava.ConfigureBCLToFastqCLI;
-import edu.unc.mapseq.module.core.CopyCLI;
+import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.MakeCLI;
+import edu.unc.mapseq.module.sequencing.casava.ConfigureBCLToFastqCLI;
 import edu.unc.mapseq.workflow.WorkflowException;
 import edu.unc.mapseq.workflow.impl.WorkflowJobFactory;
 
@@ -36,11 +36,11 @@ public class CASAVAWorkflowTest {
             graph.addVertex(makeJob);
             graph.addEdge(configureBCLToFastQJob, makeJob);
 
-            CondorJob copyRead1Job = WorkflowJobFactory.createJob(++count, CopyCLI.class, null).build();
+            CondorJob copyRead1Job = WorkflowJobFactory.createJob(++count, CopyFileCLI.class, null).build();
             graph.addVertex(copyRead1Job);
             graph.addEdge(makeJob, copyRead1Job);
 
-            CondorJob copyRead2Job = WorkflowJobFactory.createJob(++count, CopyCLI.class, null).build();
+            CondorJob copyRead2Job = WorkflowJobFactory.createJob(++count, CopyFileCLI.class, null).build();
             graph.addVertex(copyRead2Job);
             graph.addEdge(makeJob, copyRead2Job);
         } catch (WorkflowException e1) {
