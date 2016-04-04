@@ -61,7 +61,7 @@ import edu.unc.mapseq.dao.model.WorkflowRunAttemptStatusType;
 import edu.unc.mapseq.dao.soap.SOAPDAOManager;
 import edu.unc.mapseq.workflow.WorkflowBeanService;
 import edu.unc.mapseq.workflow.WorkflowExecutor;
-import edu.unc.mapseq.workflow.impl.WorkflowBeanServiceImpl;
+import edu.unc.mapseq.workflow.core.WorkflowBeanServiceImpl;
 import edu.unc.mapseq.workflow.ncgenes.casava.NCGenesCASAVAWorkflow;
 
 public class RunWorkflow implements Runnable {

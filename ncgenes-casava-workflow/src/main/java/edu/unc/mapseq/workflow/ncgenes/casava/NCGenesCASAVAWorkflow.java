@@ -36,10 +36,11 @@ import edu.unc.mapseq.module.core.MakeCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
 import edu.unc.mapseq.module.sequencing.casava.ConfigureBCLToFastqCLI;
 import edu.unc.mapseq.workflow.WorkflowException;
-import edu.unc.mapseq.workflow.impl.AbstractSampleWorkflow;
-import edu.unc.mapseq.workflow.impl.WorkflowJobFactory;
+import edu.unc.mapseq.workflow.core.WorkflowJobFactory;
+import edu.unc.mapseq.workflow.sequencing.AbstractSequencingWorkflow;
+import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowJobFactory;
 
-public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
+public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
     private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAWorkflow.class);
 
@@ -144,7 +145,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                     throw new WorkflowException("Invalid SampleSheet: ");
                                 }
 
-                                CondorJobBuilder builder = WorkflowJobFactory
+                                CondorJobBuilder builder = SequencingWorkflowJobFactory
                                         .createJob(++count, ConfigureBCLToFastqCLI.class, attempt.getId()).siteName(siteName);
                                 builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
                                         .addArgument(ConfigureBCLToFastqCLI.MISMATCHES).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL)
@@ -159,7 +160,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                 graph.addVertex(configureBCLToFastQJob);
 
                                 if (unalignedDir.exists()) {
-                                    builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
+                                    builder = SequencingWorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
+                                            .siteName(siteName);
                                     builder.addArgument(RemoveCLI.FILE, unalignedDir);
                                     CondorJob removeUnalignedDirectoryJob = builder.build();
                                     logger.info(removeUnalignedDirectoryJob.toString());
@@ -167,7 +169,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                     graph.addEdge(removeUnalignedDirectoryJob, configureBCLToFastQJob);
                                 }
 
-                                builder = WorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId()).siteName(siteName)
+                                builder = SequencingWorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId()).siteName(siteName)
                                         .numberOfProcessors(2);
                                 builder.addArgument(MakeCLI.THREADS, "2").addArgument(MakeCLI.WORKDIR, unalignedDir.getAbsolutePath());
                                 CondorJob makeJob = builder.build();
@@ -196,7 +198,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                                     switch (readCount) {
                                         case 1:
-                                            builder = WorkflowJobFactory
+                                            builder = SequencingWorkflowJobFactory
                                                     .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
                                                     .siteName(siteName);
                                             sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
@@ -217,7 +219,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                         default:
 
                                             // read 1
-                                            builder = WorkflowJobFactory
+                                            builder = SequencingWorkflowJobFactory
                                                     .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
                                                     .siteName(siteName);
                                             sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
@@ -234,7 +236,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
                                             graph.addEdge(makeJob, copyRead1Job);
 
                                             // read 2
-                                            builder = WorkflowJobFactory
+                                            builder = SequencingWorkflowJobFactory
                                                     .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
                                                     .siteName(siteName);
                                             sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
@@ -255,7 +257,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSampleWorkflow {
 
                                 }
 
-                                builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
+                                builder = SequencingWorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
+                                        .siteName(siteName);
                                 builder.addArgument(RemoveCLI.FILE, unalignedDir);
                                 CondorJob removeUnalignedDirectoryJob = builder.build();
                                 logger.info(removeUnalignedDirectoryJob.toString());
