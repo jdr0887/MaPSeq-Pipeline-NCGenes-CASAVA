@@ -22,14 +22,12 @@ public class CASAVAWorkflowTest {
 
     @Test
     public void createDOT() {
-        DirectedGraph<CondorJob, CondorJobEdge> graph = new DefaultDirectedGraph<CondorJob, CondorJobEdge>(
-                CondorJobEdge.class);
+        DirectedGraph<CondorJob, CondorJobEdge> graph = new DefaultDirectedGraph<CondorJob, CondorJobEdge>(CondorJobEdge.class);
 
         int count = 0;
 
         try {
-            CondorJob configureBCLToFastQJob = SequencingWorkflowJobFactory
-                    .createJob(++count, ConfigureBCLToFastqCLI.class, null).build();
+            CondorJob configureBCLToFastQJob = SequencingWorkflowJobFactory.createJob(++count, ConfigureBCLToFastqCLI.class, null).build();
             graph.addVertex(configureBCLToFastQJob);
 
             CondorJob makeJob = SequencingWorkflowJobFactory.createJob(++count, MakeCLI.class, null).build();
@@ -61,8 +59,8 @@ public class CASAVAWorkflowTest {
             }
         };
 
-        CondorDOTExporter<CondorJob, CondorJobEdge> dotExporter = new CondorDOTExporter<CondorJob, CondorJobEdge>(
-                vnpId, vnpLabel, null, null, null, null);
+        CondorDOTExporter<CondorJob, CondorJobEdge> dotExporter = new CondorDOTExporter<CondorJob, CondorJobEdge>(vnpId, vnpLabel, null,
+                null, null, null);
         File srcSiteResourcesImagesDir = new File("../src/site/resources/images");
         if (!srcSiteResourcesImagesDir.exists()) {
             srcSiteResourcesImagesDir.mkdirs();
