@@ -59,11 +59,11 @@ import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
 import edu.unc.mapseq.dao.model.WorkflowRunAttemptStatusType;
 import edu.unc.mapseq.workflow.WorkflowException;
-import edu.unc.mapseq.workflow.impl.AbstractSampleMessageListener;
 import edu.unc.mapseq.workflow.model.WorkflowEntity;
 import edu.unc.mapseq.workflow.model.WorkflowMessage;
+import edu.unc.mapseq.workflow.sequencing.AbstractSequencingMessageListener;
 
-public class NCGenesCASAVAMessageListener extends AbstractSampleMessageListener {
+public class NCGenesCASAVAMessageListener extends AbstractSequencingMessageListener {
 
     private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageListener.class);
 
