@@ -10,7 +10,8 @@
     <cm:default-properties>
       <cm:property name="corePoolSize" value="100" />
       <cm:property name="maxPoolSize" value="100" />
-      <cm:property name="siteName" value="Kure" />
+      <cm:property name="siteName" value="Hatteras" />
+      <cm:property name="flowcellStagingDirectory" value="/projects/sequence_analysis/medgendata" />
     </cm:default-properties>
   </cm:property-placeholder>
 
@@ -45,6 +46,7 @@
     <property name="attributes">
       <map>
         <entry key="siteName" value="${siteName}" />
+        <entry key="flowcellStagingDirectory" value="${flowcellStagingDirectory}" />
       </map>
     </property>
     <cm:managed-properties persistent-id="edu.unc.mapseq.workflow.ncgenes.casava" update-strategy="container-managed" />
