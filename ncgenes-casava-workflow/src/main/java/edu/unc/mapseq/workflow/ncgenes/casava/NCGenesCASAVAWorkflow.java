@@ -3,7 +3,6 @@ package edu.unc.mapseq.workflow.ncgenes.casava;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -11,7 +10,10 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -27,10 +29,13 @@ import edu.unc.mapseq.dao.FlowcellDAO;
 import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
+import edu.unc.mapseq.dao.model.FileData;
 import edu.unc.mapseq.dao.model.Flowcell;
 import edu.unc.mapseq.dao.model.MimeType;
 import edu.unc.mapseq.dao.model.Sample;
+import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
+import edu.unc.mapseq.module.core.CopyDirectoryCLI;
 import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.MakeCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
@@ -69,216 +74,277 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         int count = 0;
 
         WorkflowRunAttempt attempt = getWorkflowRunAttempt();
+        WorkflowRun workflowRun = attempt.getWorkflowRun();
+
+        boolean allowMismatches = true;
+        Integer barcodeLength = Integer.valueOf(8);
+
+        String siteName = getWorkflowBeanService().getAttributes().get("siteName");
+        String flowcellStagingDirectory = getWorkflowBeanService().getAttributes().get("flowcellStagingDirectory");
+
+        Set<Attribute> workflowRunAttributeList = workflowRun.getAttributes();
+        for (Attribute attribute : workflowRunAttributeList) {
+            if (attribute.getName().equals("allowMismatches") && attribute.getValue().equalsIgnoreCase("false")) {
+                allowMismatches = false;
+            }
+            if (attribute.getName().equals("barcodeLength") && NumberUtils.isNumber(attribute.getValue())) {
+                barcodeLength = Integer.valueOf(attribute.getValue());
+            }
+        }
 
         try {
 
             List<Flowcell> flowcellList = getWorkflowBeanService().getMaPSeqDAOBeanService().getFlowcellDAO()
-                    .findByWorkflowRunId(attempt.getWorkflowRun().getId());
+                    .findByWorkflowRunId(workflowRun.getId());
 
-            if (flowcellList != null && !flowcellList.isEmpty()) {
-                for (Flowcell flowcell : flowcellList) {
+            if (CollectionUtils.isEmpty(flowcellList)) {
+                throw new WorkflowException("No Flowcells to process found");
+            }
 
-                    File baseDir = new File(flowcell.getBaseDirectory());
-                    File flowcellDir = new File(baseDir, flowcell.getName());
-                    File dataDir = new File(flowcellDir, "Data");
-                    File intensitiesDir = new File(dataDir, "Intensities");
-                    File baseCallsDir = new File(intensitiesDir, "BaseCalls");
+            for (Flowcell flowcell : flowcellList) {
 
-                    List<Sample> sampleList = getWorkflowBeanService().getMaPSeqDAOBeanService().getSampleDAO()
-                            .findByFlowcellId(flowcell.getId());
-
-                    Map<Integer, List<Sample>> laneMap = new HashMap<Integer, List<Sample>>();
-
-                    if (sampleList != null && !sampleList.isEmpty()) {
-
-                        logger.info("sampleList.size() = {}", sampleList.size());
-
-                        for (Sample sample : sampleList) {
-                            if (laneMap.containsKey(sample.getLaneIndex()) || "Undetermined".equals(sample.getBarcode())) {
-                                continue;
-                            }
-                            laneMap.put(sample.getLaneIndex(), new ArrayList<Sample>());
-                        }
-
-                        for (Sample sample : sampleList) {
-                            if ("Undetermined".equals(sample.getBarcode())) {
-                                continue;
-                            }
-                            laneMap.get(sample.getLaneIndex()).add(sample);
+                File sampleSheetFile = null;
+                Set<FileData> flowcellFileDataSet = flowcell.getFileDatas();
+                if (CollectionUtils.isNotEmpty(flowcellFileDataSet)) {
+                    for (FileData fileData : flowcellFileDataSet) {
+                        if (fileData.getName().equals(String.format("%s.csv", flowcell.getName()))) {
+                            sampleSheetFile = new File(fileData.getPath(), fileData.getName());
+                            break;
                         }
                     }
+                }
 
-                    if (laneMap.size() > 0) {
+                if (sampleSheetFile == null) {
+                    logger.error("SampleSheet is null: {}", flowcell.toString());
+                    throw new WorkflowException("SampleSheet is null: " + flowcell.getName());
+                }
 
-                        String siteName = getWorkflowBeanService().getAttributes().get("siteName");
+                if (!sampleSheetFile.exists()) {
+                    logger.error("Specified sample sheet doesn't exist: {}", sampleSheetFile.getAbsolutePath());
+                    throw new WorkflowException("Invalid SampleSheet: " + flowcell.getName());
+                }
 
-                        for (Integer laneIndex : laneMap.keySet()) {
+                Integer readCount = null;
+                if (CollectionUtils.isNotEmpty(flowcell.getAttributes())) {
+                    for (Attribute attribute : flowcell.getAttributes()) {
+                        if ("readCount".equals(attribute.getName())) {
+                            readCount = Integer.valueOf(attribute.getValue());
+                            break;
+                        }
+                    }
+                }
 
-                            try {
+                File bclDir = new File(flowcell.getBaseDirectory());
+                File bclFlowcellDir = new File(bclDir, flowcell.getName());
+                File dataDir = new File(bclFlowcellDir, "Data");
+                File intensitiesDir = new File(dataDir, "Intensities");
+                File baseCallsDir = new File(intensitiesDir, "BaseCalls");
 
-                                File unalignedDir = new File(flowcellDir, String.format("%s.%d", "Unaligned", laneIndex));
+                File flowcellStagingDir = new File(flowcellStagingDirectory, flowcell.getName());
 
-                                Set<Attribute> flowcellAttributeSet = flowcell.getAttributes();
+                List<Sample> sampleList = getWorkflowBeanService().getMaPSeqDAOBeanService().getSampleDAO()
+                        .findByFlowcellId(flowcell.getId());
 
-                                File sampleSheetFile = null;
-                                Integer readCount = null;
+                Map<Integer, List<Sample>> laneMap = new HashMap<Integer, List<Sample>>();
 
-                                if (flowcellAttributeSet != null) {
-                                    Iterator<Attribute> flowcellAttributeIter = flowcellAttributeSet.iterator();
-                                    while (flowcellAttributeIter.hasNext()) {
-                                        Attribute ea = flowcellAttributeIter.next();
-                                        if ("sampleSheet".equals(ea.getName())) {
-                                            sampleSheetFile = new File(ea.getValue());
-                                        }
-                                        if ("readCount".equals(ea.getName())) {
-                                            readCount = Integer.valueOf(ea.getValue());
-                                        }
-                                    }
-                                }
+                if (CollectionUtils.isNotEmpty(sampleList)) {
+                    logger.info("sampleList.size() = {}", sampleList.size());
 
-                                if (sampleSheetFile == null) {
-                                    sampleSheetFile = new File(baseCallsDir, "SampleSheet.csv");
-                                }
+                    for (Sample sample : sampleList) {
+                        if (laneMap.containsKey(sample.getLaneIndex()) || "Undetermined".equals(sample.getBarcode())) {
+                            continue;
+                        }
+                        laneMap.put(sample.getLaneIndex(), new ArrayList<Sample>());
+                    }
 
-                                if (!sampleSheetFile.exists()) {
-                                    logger.error("Specified sample sheet doesn't exist: {}", sampleSheetFile.getAbsolutePath());
-                                    throw new WorkflowException("Invalid SampleSheet: ");
-                                }
+                    for (Sample sample : sampleList) {
+                        if ("Undetermined".equals(sample.getBarcode())) {
+                            continue;
+                        }
+                        laneMap.get(sample.getLaneIndex()).add(sample);
+                    }
+                }
 
-                                CondorJobBuilder builder = SequencingWorkflowJobFactory
-                                        .createJob(++count, ConfigureBCLToFastqCLI.class, attempt.getId()).siteName(siteName);
-                                builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
-                                        .addArgument(ConfigureBCLToFastqCLI.MISMATCHES).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL)
-                                        .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGSTATS)
-                                        .addArgument(ConfigureBCLToFastqCLI.FASTQCLUSTERCOUNT, "0")
-                                        .addArgument(ConfigureBCLToFastqCLI.TILES, laneIndex.toString())
-                                        .addArgument(ConfigureBCLToFastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
-                                        .addArgument(ConfigureBCLToFastqCLI.SAMPLESHEET, sampleSheetFile.getAbsolutePath())
-                                        .addArgument(ConfigureBCLToFastqCLI.FORCE);
-                                CondorJob configureBCLToFastQJob = builder.build();
-                                logger.info(configureBCLToFastQJob.toString());
-                                graph.addVertex(configureBCLToFastQJob);
+                CondorJob copyFromStagingJob = null;
 
-                                if (unalignedDir.exists()) {
-                                    builder = SequencingWorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
-                                            .siteName(siteName);
-                                    builder.addArgument(RemoveCLI.FILE, unalignedDir);
-                                    CondorJob removeUnalignedDirectoryJob = builder.build();
-                                    logger.info(removeUnalignedDirectoryJob.toString());
-                                    graph.addVertex(removeUnalignedDirectoryJob);
-                                    graph.addEdge(removeUnalignedDirectoryJob, configureBCLToFastQJob);
-                                }
+                CondorJob removeExistingBCLDirectoryJob = null;
 
-                                builder = SequencingWorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId()).siteName(siteName)
-                                        .numberOfProcessors(2);
-                                builder.addArgument(MakeCLI.THREADS, "2").addArgument(MakeCLI.WORKDIR, unalignedDir.getAbsolutePath());
-                                CondorJob makeJob = builder.build();
-                                logger.info(makeJob.toString());
-                                graph.addVertex(makeJob);
-                                graph.addEdge(configureBCLToFastQJob, makeJob);
+                if (flowcellStagingDir.exists()) {
 
-                                logger.debug("readCount = {}", readCount);
+                    if (bclFlowcellDir.exists()) {
+                        CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
+                                .siteName(siteName);
+                        builder.addArgument(RemoveCLI.FILE, bclFlowcellDir.getAbsolutePath());
+                        removeExistingBCLDirectoryJob = builder.build();
+                        logger.info(removeExistingBCLDirectoryJob.toString());
+                        graph.addVertex(removeExistingBCLDirectoryJob);
+                    }
 
-                                CondorJob copyRead1Job = null;
-                                CondorJob copyRead2Job = null;
-                                for (Sample sample : laneMap.get(laneIndex)) {
+                    CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, CopyDirectoryCLI.class, attempt.getId())
+                            .siteName(siteName);
+                    builder.addArgument(CopyDirectoryCLI.SOURCE, flowcellStagingDir.getAbsolutePath())
+                            .addArgument(CopyDirectoryCLI.DESTINATION, bclFlowcellDir.getAbsolutePath());
+                    copyFromStagingJob = builder.build();
+                    logger.info(copyFromStagingJob.toString());
+                    graph.addVertex(copyFromStagingJob);
+                    if (removeExistingBCLDirectoryJob != null) {
+                        graph.addEdge(removeExistingBCLDirectoryJob, copyFromStagingJob);
+                    }
+                }
 
-                                    File outputDirectory = new File(sample.getOutputDirectory(), getName());
-                                    File tmpDirectory = new File(outputDirectory, "tmp");
-                                    tmpDirectory.mkdirs();
+                if (MapUtils.isNotEmpty(laneMap)) {
 
-                                    logger.info("outputDirectory.getAbsolutePath(): {}", outputDirectory.getAbsolutePath());
+                    for (Integer laneIndex : laneMap.keySet()) {
 
-                                    File projectDirectory = new File(unalignedDir, "Project_" + sample.getStudy().getName());
-                                    File sampleDirectory = new File(projectDirectory, "Sample_" + sample.getName());
+                        File unalignedDir = new File(bclFlowcellDir, String.format("%s.%d", "Unaligned", laneIndex));
 
-                                    File sourceFile = null;
-                                    File outputFile = null;
-                                    String outputFileName = null;
+                        CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, ConfigureBCLToFastqCLI.class, attempt.getId())
+                                .siteName(siteName);
+                        builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
+                                .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGSTATS)
+                                .addArgument(ConfigureBCLToFastqCLI.INDEXLENGTH, barcodeLength)
+                                .addArgument(ConfigureBCLToFastqCLI.FASTQCLUSTERCOUNT, "0")
+                                .addArgument(ConfigureBCLToFastqCLI.TILES, laneIndex.toString())
+                                .addArgument(ConfigureBCLToFastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
+                                .addArgument(ConfigureBCLToFastqCLI.SAMPLESHEET, sampleSheetFile.getAbsolutePath())
+                                .addArgument(ConfigureBCLToFastqCLI.FORCE);
 
-                                    switch (readCount) {
-                                        case 1:
-                                            builder = SequencingWorkflowJobFactory
-                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
-                                                    .siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
-                                                    sample.getName(), sample.getBarcode(), laneIndex, 1));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
-                                                    sample.getBarcode(), laneIndex, 1);
-                                            outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyRead1Job = builder.build();
-                                            logger.info(copyRead1Job.toString());
-                                            graph.addVertex(copyRead1Job);
-                                            graph.addEdge(makeJob, copyRead1Job);
+                        if (allowMismatches) {
+                            builder.addArgument(ConfigureBCLToFastqCLI.MISMATCHES);
+                        }
 
-                                            break;
-                                        case 2:
-                                        default:
+                        CondorJob configureBCLToFastQJob = builder.build();
+                        logger.info(configureBCLToFastQJob.toString());
+                        graph.addVertex(configureBCLToFastQJob);
 
-                                            // read 1
-                                            builder = SequencingWorkflowJobFactory
-                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
-                                                    .siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
-                                                    sample.getName(), sample.getBarcode(), laneIndex, 1));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
-                                                    sample.getBarcode(), laneIndex, 1);
-                                            outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyRead1Job = builder.build();
-                                            logger.info(copyRead1Job.toString());
-                                            graph.addVertex(copyRead1Job);
-                                            graph.addEdge(makeJob, copyRead1Job);
+                        if (copyFromStagingJob != null) {
+                            graph.addEdge(copyFromStagingJob, configureBCLToFastQJob);
+                        }
 
-                                            // read 2
-                                            builder = SequencingWorkflowJobFactory
-                                                    .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId())
-                                                    .siteName(siteName);
-                                            sourceFile = new File(sampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
-                                                    sample.getName(), sample.getBarcode(), laneIndex, 2));
-                                            outputFileName = String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
-                                                    sample.getBarcode(), laneIndex, 2);
-                                            outputFile = new File(outputDirectory, outputFileName);
-                                            builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
-                                                    .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
-                                            copyRead2Job = builder.build();
-                                            logger.info(copyRead2Job.toString());
-                                            graph.addVertex(copyRead2Job);
-                                            graph.addEdge(makeJob, copyRead2Job);
+                        if (!flowcellStagingDir.exists() && unalignedDir.exists()) {
+                            builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
+                            builder.addArgument(RemoveCLI.FILE, unalignedDir);
+                            CondorJob removeUnalignedDirectoryJob = builder.build();
+                            logger.info(removeUnalignedDirectoryJob.toString());
+                            graph.addVertex(removeUnalignedDirectoryJob);
+                            graph.addEdge(removeUnalignedDirectoryJob, configureBCLToFastQJob);
+                        }
 
-                                            break;
-                                    }
+                        builder = WorkflowJobFactory.createJob(++count, MakeCLI.class, attempt.getId()).siteName(siteName)
+                                .numberOfProcessors(2);
+                        builder.addArgument(MakeCLI.THREADS, "2").addArgument(MakeCLI.WORKDIR, unalignedDir.getAbsolutePath());
+                        CondorJob makeJob = builder.build();
+                        logger.info(makeJob.toString());
+                        graph.addVertex(makeJob);
+                        graph.addEdge(configureBCLToFastQJob, makeJob);
 
-                                }
+                        List<CondorJob> copyJobList = new ArrayList<CondorJob>();
 
-                                builder = SequencingWorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId())
-                                        .siteName(siteName);
-                                builder.addArgument(RemoveCLI.FILE, unalignedDir);
-                                CondorJob removeUnalignedDirectoryJob = builder.build();
-                                logger.info(removeUnalignedDirectoryJob.toString());
-                                graph.addVertex(removeUnalignedDirectoryJob);
-                                graph.addEdge(removeUnalignedDirectoryJob, copyRead1Job);
-                                if (copyRead2Job != null) {
-                                    graph.addEdge(removeUnalignedDirectoryJob, copyRead2Job);
-                                }
+                        CondorJob copyRead1Job = null;
+                        CondorJob copyRead2Job = null;
 
-                            } catch (Exception e) {
-                                throw new WorkflowException(e);
+                        for (Sample sample : laneMap.get(laneIndex)) {
+
+                            File workflowDirectory = new File(sample.getOutputDirectory(), getName());
+
+                            File tmpDirectory = new File(workflowDirectory, "tmp");
+                            tmpDirectory.mkdirs();
+
+                            logger.info("workflowDirectory.getAbsolutePath(): {}", workflowDirectory.getAbsolutePath());
+
+                            File projectDirectory = new File(unalignedDir, String.format("Project_%s", sample.getStudy().getName()));
+                            File bclSampleDirectory = new File(projectDirectory, String.format("Sample_%s", sample.getName()));
+
+                            File sourceFile = null;
+                            File outputFile = null;
+
+                            switch (readCount) {
+                                case 1:
+                                    builder = SequencingWorkflowJobFactory
+                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+
+                                    sourceFile = new File(bclSampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                            sample.getName(), sample.getBarcode(), laneIndex, 1));
+
+                                    outputFile = new File(workflowDirectory, String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                            sample.getBarcode(), laneIndex, 1));
+
+                                    // outputFile = new File(workflowDirectory, String.format("%s_R%d.fastq.gz",
+                                    // workflowRun.getName(), 1));
+
+                                    builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                    copyRead1Job = builder.build();
+                                    logger.info(copyRead1Job.toString());
+                                    graph.addVertex(copyRead1Job);
+                                    graph.addEdge(makeJob, copyRead1Job);
+                                    copyJobList.add(copyRead1Job);
+                                    break;
+                                case 2:
+                                default:
+
+                                    // read 1
+                                    builder = SequencingWorkflowJobFactory
+                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+
+                                    sourceFile = new File(bclSampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                            sample.getName(), sample.getBarcode(), laneIndex, 1));
+
+                                    outputFile = new File(workflowDirectory, String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                            sample.getBarcode(), laneIndex, 1));
+
+                                    // outputFile = new File(workflowDirectory, String.format("%s_R%d.fastq.gz",
+                                    // workflowRun.getName(), 1));
+
+                                    builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                    copyRead1Job = builder.build();
+                                    logger.info(copyRead1Job.toString());
+                                    graph.addVertex(copyRead1Job);
+                                    graph.addEdge(makeJob, copyRead1Job);
+                                    copyJobList.add(copyRead1Job);
+
+                                    // read 2
+                                    builder = SequencingWorkflowJobFactory
+                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+                                    sourceFile = new File(bclSampleDirectory, String.format("%s_%s_L%03d_R%d_001.fastq.gz",
+                                            sample.getName(), sample.getBarcode(), laneIndex, 2));
+
+                                    outputFile = new File(workflowDirectory, String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
+                                            sample.getBarcode(), laneIndex, 2));
+
+                                    // outputFile = new File(workflowDirectory, String.format("%s_R%d.fastq.gz",
+                                    // workflowRun.getName(), 2));
+
+                                    builder.addArgument(CopyFileCLI.SOURCE, sourceFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.DESTINATION, outputFile.getAbsolutePath())
+                                            .addArgument(CopyFileCLI.MIMETYPE, MimeType.FASTQ.toString());
+                                    copyRead2Job = builder.build();
+                                    logger.info(copyRead2Job.toString());
+                                    graph.addVertex(copyRead2Job);
+                                    graph.addEdge(makeJob, copyRead2Job);
+                                    copyJobList.add(copyRead2Job);
+                                    break;
                             }
 
                         }
 
+                        builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
+                        builder.addArgument(RemoveCLI.FILE, unalignedDir);
+                        CondorJob removeUnalignedDirectoryJob = builder.build();
+                        logger.info(removeUnalignedDirectoryJob.toString());
+                        graph.addVertex(removeUnalignedDirectoryJob);
+                        for (CondorJob copyJob : copyJobList) {
+                            graph.addEdge(copyJob, removeUnalignedDirectoryJob);
+                        }
                     }
 
                 }
+
             }
-        } catch (MaPSeqDAOException e) {
+        } catch (Exception e) {
             throw new WorkflowException(e);
         }
 
@@ -309,12 +375,6 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         if (flowcellIdList != null && !flowcellIdList.isEmpty()) {
-
-            // FixMismappedFastqFileDataRunnable fixMismappedFastqFileDataRunnable = new
-            // FixMismappedFastqFileDataRunnable();
-            // fixMismappedFastqFileDataRunnable.setMapseqDAOBean(getWorkflowBeanService().getMaPSeqDAOBean());
-            // fixMismappedFastqFileDataRunnable.setFlowcellIdList(flowcellIdList);
-            // executorService.submit(fixMismappedFastqFileDataRunnable);
 
             SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable();
             saveDemultiplexedStatsAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
