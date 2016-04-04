@@ -48,8 +48,8 @@ public class CreateFlowcellTest {
         StudyDAO studyDAO = maPSeqDAOBeanService.getStudyDAO();
 
         try {
-            String sampleSheetContent = IOUtils.toString(this.getClass().getClassLoader()
-                    .getResourceAsStream("edu/unc/mapseq/main/SampleSheet.csv"));
+            String sampleSheetContent = IOUtils
+                    .toString(this.getClass().getClassLoader().getResourceAsStream("edu/unc/mapseq/main/SampleSheet.csv"));
             LineNumberReader lnr = new LineNumberReader(new StringReader(sampleSheetContent));
             lnr.readLine();
             String line;

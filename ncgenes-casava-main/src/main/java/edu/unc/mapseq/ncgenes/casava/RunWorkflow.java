@@ -168,7 +168,8 @@ public class RunWorkflow implements Runnable {
             attempt.setId(attemptId);
 
             MaPSeqConfigurationService configService = new MaPSeqConfigurationServiceImpl();
-            System.out.println("Please watch " + System.getenv("MAPSEQ_CLIENT_HOME") + "/logs/mapseq.log for state changes and/or progress");
+            System.out
+                    .println("Please watch " + System.getenv("MAPSEQ_CLIENT_HOME") + "/logs/mapseq.log for state changes and/or progress");
             WorkflowBeanService workflowBeanService = new WorkflowBeanServiceImpl();
 
             Map<String, String> attributeMap = new HashMap<String, String>();
