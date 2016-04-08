@@ -6,7 +6,7 @@
 
   <reference id="NCGenesCASAVAWorkflowBeanService" interface="edu.unc.mapseq.workflow.WorkflowBeanService" component-name="NCGenesCASAVAWorkflowBeanService" />
 
-  <bean id="NCGenesCASAVAMessageListener" class="edu.unc.mapseq.messaging.ncgenes.casava.CASAVAMessageListener">
+  <bean id="NCGenesCASAVAMessageListener" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageListener">
     <property name="workflowBeanService" ref="NCGenesCASAVAWorkflowBeanService" />
     <property name="workflowName" value="NCGenesCASAVA" />
   </bean>
