@@ -1,3 +1,4 @@
 edu.unc.mapseq.commands.ncgenes.casava.RunWorkflowAction
+edu.unc.mapseq.commands.ncgenes.casava.PersistFilesAction
 edu.unc.mapseq.commands.ncgenes.casava.SaveDemultiplexedStatsAttributesAction
 edu.unc.mapseq.commands.ncgenes.casava.SaveObservedClusterDensityAttributesAction
