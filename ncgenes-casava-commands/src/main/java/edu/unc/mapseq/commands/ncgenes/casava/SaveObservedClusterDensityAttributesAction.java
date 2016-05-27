@@ -19,7 +19,7 @@ import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 @Service
 public class SaveObservedClusterDensityAttributesAction implements Action {
 
-    private final Logger logger = LoggerFactory.getLogger(SaveObservedClusterDensityAttributesAction.class);
+    private static final Logger logger = LoggerFactory.getLogger(SaveObservedClusterDensityAttributesAction.class);
 
     @Reference
     private MaPSeqDAOBeanService maPSeqDAOBeanService;

@@ -20,7 +20,7 @@ import edu.unc.mapseq.ws.ncgenes.casava.NCGenesCASAVAService;
 
 public class NCGenesCASAVAServiceImpl implements NCGenesCASAVAService {
 
-    private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAServiceImpl.class);
 
     private FileDataDAO fileDataDAO;
 

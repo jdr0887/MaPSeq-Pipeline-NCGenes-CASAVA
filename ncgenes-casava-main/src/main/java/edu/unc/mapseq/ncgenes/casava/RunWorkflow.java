@@ -66,7 +66,7 @@ import edu.unc.mapseq.workflow.ncgenes.casava.NCGenesCASAVAWorkflow;
 
 public class RunWorkflow implements Runnable {
 
-    private final Logger logger = LoggerFactory.getLogger(RunWorkflow.class);
+    private static final Logger logger = LoggerFactory.getLogger(RunWorkflow.class);
 
     private final static HelpFormatter helpFormatter = new HelpFormatter();
 

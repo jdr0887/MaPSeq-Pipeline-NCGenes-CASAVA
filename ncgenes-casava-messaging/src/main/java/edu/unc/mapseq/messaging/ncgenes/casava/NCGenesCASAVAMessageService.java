@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 public class NCGenesCASAVAMessageService {
 
-    private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageService.class);
+    private static final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageService.class);
 
     private ConnectionFactory connectionFactory;
 

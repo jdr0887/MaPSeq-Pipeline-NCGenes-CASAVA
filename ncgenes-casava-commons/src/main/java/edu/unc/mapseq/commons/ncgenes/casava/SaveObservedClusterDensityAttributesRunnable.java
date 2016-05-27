@@ -28,7 +28,7 @@ import edu.unc.mapseq.dao.model.Sample;
 
 public class SaveObservedClusterDensityAttributesRunnable implements Runnable {
 
-    private final Logger logger = LoggerFactory.getLogger(SaveObservedClusterDensityAttributesRunnable.class);
+    private static final Logger logger = LoggerFactory.getLogger(SaveObservedClusterDensityAttributesRunnable.class);
 
     private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
