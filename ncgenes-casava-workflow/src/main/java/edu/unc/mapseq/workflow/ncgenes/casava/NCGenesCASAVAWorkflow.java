@@ -47,7 +47,7 @@ import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowJobFactory;
 
 public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
-    private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAWorkflow.class);
+    private static final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAWorkflow.class);
 
     public NCGenesCASAVAWorkflow() {
         super();

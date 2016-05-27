@@ -65,7 +65,7 @@ import edu.unc.mapseq.workflow.sequencing.AbstractSequencingMessageListener;
 
 public class NCGenesCASAVAMessageListener extends AbstractSequencingMessageListener {
 
-    private final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(NCGenesCASAVAMessageListener.class);
 
     public NCGenesCASAVAMessageListener() {
         super();
