@@ -4,3 +4,4 @@
 target
 src/main/distribution/bin/mapseq-*.sh
 src/main/resources/META-INF/persistence.xml
+src/main/resources/edu/unc/mapseq/ncgenes/casava/workflow.properties
