@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.Executors;
@@ -160,7 +161,10 @@ public class RunWorkflow implements Runnable {
 
         try {
             WorkflowRunAttempt attempt = new WorkflowRunAttempt();
-            attempt.setVersion(casavaWorkflow.getVersion());
+            ResourceBundle ncgenesBundle = ResourceBundle.getBundle("edu/unc/mapseq/ncgenes/casava/workflow");
+            String version = ncgenesBundle.getString("version");
+
+            attempt.setVersion(version);
             attempt.setStatus(WorkflowRunAttemptStatusType.PENDING);
             attempt.setWorkflowRun(workflowRun);
 
