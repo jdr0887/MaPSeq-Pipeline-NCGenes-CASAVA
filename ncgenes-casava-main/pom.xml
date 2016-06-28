@@ -58,6 +58,11 @@
             <phase>validate</phase>
             <configuration>
               <tasks>
+                <delete file="${basedir}/src/main/resources/edu/unc/mapseq/ncgenes/casava/workflow.properties" />
+                <touch file="${basedir}/src/main/resources/edu/unc/mapseq/ncgenes/casava/workflow.properties" mkdirs="true" />
+                <echo file="${basedir}/src/main/resources/edu/unc/mapseq/ncgenes/casava/workflow.properties" append="true">
+                 version=${project.version}
+                </echo>		
 		<mkdir dir="${basedir}/src/main/distribution/bin" />
 		<delete>
 		  <fileset dir="${basedir}/src/main/distribution/bin" includes="**/mapseq-*.sh" />
