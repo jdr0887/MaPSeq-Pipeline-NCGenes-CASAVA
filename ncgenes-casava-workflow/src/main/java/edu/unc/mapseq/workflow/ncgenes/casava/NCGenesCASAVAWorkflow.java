@@ -5,14 +5,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.math.NumberUtils;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.Graph;
@@ -40,6 +39,7 @@ import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.MakeCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
 import edu.unc.mapseq.module.sequencing.casava.ConfigureBCLToFastqCLI;
+import edu.unc.mapseq.workflow.SystemType;
 import edu.unc.mapseq.workflow.WorkflowException;
 import edu.unc.mapseq.workflow.core.WorkflowJobFactory;
 import edu.unc.mapseq.workflow.sequencing.AbstractSequencingWorkflow;
@@ -59,10 +59,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
     }
 
     @Override
-    public String getVersion() {
-        ResourceBundle ncgenesBundle = ResourceBundle.getBundle("edu/unc/mapseq/workflow/casava/workflow");
-        String version = ncgenesBundle.getString("version");
-        return StringUtils.isNotEmpty(version) ? version : "0.0.1-SNAPSHOT";
+    public SystemType getSystem() {
+        return SystemType.PRODUCTION;
     }
 
     @Override
@@ -372,25 +370,31 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
             e.printStackTrace();
         }
 
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        ExecutorService es = Executors.newSingleThreadExecutor();
 
-        if (flowcellIdList != null && !flowcellIdList.isEmpty()) {
+        try {
+            if (flowcellIdList != null && !flowcellIdList.isEmpty()) {
 
-            SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable();
-            saveDemultiplexedStatsAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
-            saveDemultiplexedStatsAttributesRunnable.setFlowcellIdList(flowcellIdList);
-            executorService.submit(saveDemultiplexedStatsAttributesRunnable);
+                SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable();
+                saveDemultiplexedStatsAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
+                saveDemultiplexedStatsAttributesRunnable.setFlowcellIdList(flowcellIdList);
+                es.submit(saveDemultiplexedStatsAttributesRunnable);
 
-            SaveObservedClusterDensityAttributesRunnable saveObservedClusterDensityAttributesRunnable = new SaveObservedClusterDensityAttributesRunnable();
-            saveObservedClusterDensityAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
-            saveObservedClusterDensityAttributesRunnable
-                    .setMaPSeqConfigurationService(getWorkflowBeanService().getMaPSeqConfigurationService());
-            saveObservedClusterDensityAttributesRunnable.setFlowcellIdList(flowcellIdList);
-            executorService.submit(saveObservedClusterDensityAttributesRunnable);
+                SaveObservedClusterDensityAttributesRunnable saveObservedClusterDensityAttributesRunnable = new SaveObservedClusterDensityAttributesRunnable();
+                saveObservedClusterDensityAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
+                saveObservedClusterDensityAttributesRunnable
+                        .setMaPSeqConfigurationService(getWorkflowBeanService().getMaPSeqConfigurationService());
+                saveObservedClusterDensityAttributesRunnable.setFlowcellIdList(flowcellIdList);
+                es.submit(saveObservedClusterDensityAttributesRunnable);
 
+            }
+
+            es.shutdown();
+            es.awaitTermination(1L, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
-        executorService.shutdown();
     }
 
 }
