@@ -9,6 +9,7 @@
   <bean id="NCGenesCASAVAMessageListener" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageListener">
     <property name="workflowBeanService" ref="NCGenesCASAVAWorkflowBeanService" />
     <property name="workflowName" value="NCGenesCASAVA" />
+  <property name="studyName" value="NC_GENES" />
   </bean>
 
   <bean id="NCGenesCASAVAMessagingService" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageService"
