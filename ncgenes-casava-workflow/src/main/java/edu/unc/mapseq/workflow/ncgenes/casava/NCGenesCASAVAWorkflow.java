@@ -39,11 +39,11 @@ import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.MakeCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
 import edu.unc.mapseq.module.sequencing.casava.ConfigureBCLToFastqCLI;
-import edu.unc.mapseq.workflow.SystemType;
 import edu.unc.mapseq.workflow.WorkflowException;
 import edu.unc.mapseq.workflow.core.WorkflowJobFactory;
 import edu.unc.mapseq.workflow.sequencing.AbstractSequencingWorkflow;
 import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowJobFactory;
+import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowUtil;
 
 public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
@@ -51,16 +51,6 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
     public NCGenesCASAVAWorkflow() {
         super();
-    }
-
-    @Override
-    public String getName() {
-        return NCGenesCASAVAWorkflow.class.getSimpleName().replace("Workflow", "");
-    }
-
-    @Override
-    public SystemType getSystem() {
-        return SystemType.PRODUCTION;
     }
 
     @Override
@@ -243,7 +233,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                         for (Sample sample : laneMap.get(laneIndex)) {
 
-                            File workflowDirectory = new File(sample.getOutputDirectory(), getName());
+                            File workflowDirectory = SequencingWorkflowUtil.createOutputDirectory(sample,
+                                    getWorkflowRunAttempt().getWorkflowRun().getWorkflow());
 
                             File tmpDirectory = new File(workflowDirectory, "tmp");
                             tmpDirectory.mkdirs();
