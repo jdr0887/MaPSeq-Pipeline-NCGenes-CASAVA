@@ -12,6 +12,10 @@
   <packaging>bundle</packaging>
   <dependencies>
     <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-csv</artifactId>
+    </dependency>    
+    <dependency>
       <groupId>edu.unc.mapseq.pipelines.ncgenes-casava</groupId>
       <artifactId>ncgenes-casava-workflow</artifactId>
     </dependency>       
