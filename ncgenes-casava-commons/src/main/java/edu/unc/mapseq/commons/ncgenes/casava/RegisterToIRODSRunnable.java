@@ -26,7 +26,7 @@ import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.MimeType;
 import edu.unc.mapseq.dao.model.Sample;
-import edu.unc.mapseq.workflow.SystemType;
+import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.workflow.sequencing.IRODSBean;
 import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowUtil;
 
@@ -36,16 +36,16 @@ public class RegisterToIRODSRunnable implements Runnable {
 
     private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
-    private SystemType system;
-
     private Long flowcellId;
 
     private Long sampleId;
 
-    public RegisterToIRODSRunnable(MaPSeqDAOBeanService maPSeqDAOBeanService, SystemType system) {
+    private WorkflowRun workflowRun;
+
+    public RegisterToIRODSRunnable(MaPSeqDAOBeanService maPSeqDAOBeanService, WorkflowRun workflowRun) {
         super();
         this.maPSeqDAOBeanService = maPSeqDAOBeanService;
-        this.system = system;
+        this.workflowRun = workflowRun;
     }
 
     @Override
@@ -83,7 +83,7 @@ public class RegisterToIRODSRunnable implements Runnable {
         for (Sample sample : sampleSet) {
             es.submit(() -> {
 
-                File outputDirectory = new File(sample.getOutputDirectory(), "NCGenesBaseline");
+                File outputDirectory = SequencingWorkflowUtil.createOutputDirectory(sample, workflowRun.getWorkflow());
                 File tmpDir = new File(outputDirectory, "tmp");
                 if (!tmpDir.exists()) {
                     tmpDir.mkdirs();
@@ -118,11 +118,11 @@ public class RegisterToIRODSRunnable implements Runnable {
                 List<ImmutablePair<String, String>> attributeList = Arrays.asList(
                         new ImmutablePair<String, String>("ParticipantId", participantId),
                         new ImmutablePair<String, String>("MaPSeqWorkflowVersion", version),
-                        new ImmutablePair<String, String>("MaPSeqWorkflowName", "NCGenesCASAVA"),
+                        new ImmutablePair<String, String>("MaPSeqWorkflowName", workflowRun.getWorkflow().getName()),
                         new ImmutablePair<String, String>("MaPSeqMimeType", MimeType.FASTQ.getName()),
                         new ImmutablePair<String, String>("MaPSeqStudyName", sample.getStudy().getName()),
                         new ImmutablePair<String, String>("MaPSeqSampleId", sample.getId().toString()),
-                        new ImmutablePair<String, String>("MaPSeqSystem", system.getValue()),
+                        new ImmutablePair<String, String>("MaPSeqSystem", workflowRun.getWorkflow().getSystem().getValue()),
                         new ImmutablePair<String, String>("MaPSeqFlowcellId", sample.getFlowcell().getId().toString()));
 
                 files2RegisterToIRODS.add(new IRODSBean(readPairList.get(0), attributeList));
@@ -190,12 +190,12 @@ public class RegisterToIRODSRunnable implements Runnable {
 
     }
 
-    public SystemType getSystem() {
-        return system;
+    public WorkflowRun getWorkflowRun() {
+        return workflowRun;
     }
 
-    public void setSystem(SystemType system) {
-        this.system = system;
+    public void setWorkflowRun(WorkflowRun workflowRun) {
+        this.workflowRun = workflowRun;
     }
 
     public MaPSeqDAOBeanService getMaPSeqDAOBeanService() {
