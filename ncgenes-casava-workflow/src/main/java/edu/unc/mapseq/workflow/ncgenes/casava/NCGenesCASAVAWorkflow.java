@@ -22,9 +22,9 @@ import org.renci.jlrm.condor.CondorJobEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.unc.mapseq.commons.ncgenes.casava.RegisterToIRODSRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveObservedClusterDensityAttributesRunnable;
-import edu.unc.mapseq.dao.FlowcellDAO;
 import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
@@ -343,46 +343,39 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
     @Override
     public void postRun() throws WorkflowException {
 
-        MaPSeqDAOBeanService maPSeqDAOBeanService = getWorkflowBeanService().getMaPSeqDAOBeanService();
-        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
-        List<Long> flowcellIdList = new ArrayList<Long>();
-
         WorkflowRunAttempt attempt = getWorkflowRunAttempt();
 
-        try {
-            List<Flowcell> flowcellList = flowcellDAO.findByWorkflowRunId(attempt.getWorkflowRun().getId());
-
-            if (flowcellList != null && !flowcellList.isEmpty()) {
-                for (Flowcell flowcell : flowcellList) {
-                    flowcellIdList.add(flowcell.getId());
-                }
-            }
-        } catch (MaPSeqDAOException e) {
-            e.printStackTrace();
-        }
+        MaPSeqDAOBeanService mapseqDAOBeanService = getWorkflowBeanService().getMaPSeqDAOBeanService();
 
         ExecutorService es = Executors.newSingleThreadExecutor();
 
         try {
-            if (flowcellIdList != null && !flowcellIdList.isEmpty()) {
+            List<Flowcell> flowcellList = mapseqDAOBeanService.getFlowcellDAO().findByWorkflowRunId(attempt.getWorkflowRun().getId());
 
-                SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable();
-                saveDemultiplexedStatsAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
-                saveDemultiplexedStatsAttributesRunnable.setFlowcellIdList(flowcellIdList);
-                es.submit(saveDemultiplexedStatsAttributesRunnable);
+            if (CollectionUtils.isNotEmpty(flowcellList)) {
 
-                SaveObservedClusterDensityAttributesRunnable saveObservedClusterDensityAttributesRunnable = new SaveObservedClusterDensityAttributesRunnable();
-                saveObservedClusterDensityAttributesRunnable.setMaPSeqDAOBeanService(getWorkflowBeanService().getMaPSeqDAOBeanService());
-                saveObservedClusterDensityAttributesRunnable
-                        .setMaPSeqConfigurationService(getWorkflowBeanService().getMaPSeqConfigurationService());
-                saveObservedClusterDensityAttributesRunnable.setFlowcellIdList(flowcellIdList);
-                es.submit(saveObservedClusterDensityAttributesRunnable);
+                for (Flowcell flowcell : flowcellList) {
+
+                    RegisterToIRODSRunnable registerToIRODSRunnable = new RegisterToIRODSRunnable(mapseqDAOBeanService,
+                            attempt.getWorkflowRun());
+                    registerToIRODSRunnable.setFlowcellId(flowcell.getId());
+                    es.submit(registerToIRODSRunnable);
+
+                    SaveDemultiplexedStatsAttributesRunnable saveDemultiplexedStatsAttributesRunnable = new SaveDemultiplexedStatsAttributesRunnable(
+                            mapseqDAOBeanService, flowcell);
+                    es.submit(saveDemultiplexedStatsAttributesRunnable);
+
+                    SaveObservedClusterDensityAttributesRunnable saveObservedClusterDensityAttributesRunnable = new SaveObservedClusterDensityAttributesRunnable(
+                            mapseqDAOBeanService, flowcell);
+                    es.submit(saveObservedClusterDensityAttributesRunnable);
+
+                }
 
             }
 
             es.shutdown();
             es.awaitTermination(1L, TimeUnit.HOURS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | MaPSeqDAOException e) {
             e.printStackTrace();
         }
 
