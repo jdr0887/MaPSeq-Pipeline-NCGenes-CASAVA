@@ -119,7 +119,7 @@ public class RegisterToIRODSRunnable implements Runnable {
                         new ImmutablePair<String, String>("ParticipantId", participantId),
                         new ImmutablePair<String, String>("MaPSeqWorkflowVersion", version),
                         new ImmutablePair<String, String>("MaPSeqWorkflowName", workflowRun.getWorkflow().getName()),
-                        new ImmutablePair<String, String>("MaPSeqMimeType", MimeType.FASTQ.getName()),
+                        new ImmutablePair<String, String>("MaPSeqMimeType", MimeType.FASTQ.toString()),
                         new ImmutablePair<String, String>("MaPSeqStudyName", sample.getStudy().getName()),
                         new ImmutablePair<String, String>("MaPSeqSampleId", sample.getId().toString()),
                         new ImmutablePair<String, String>("MaPSeqSystem", workflowRun.getWorkflow().getSystem().getValue()),
