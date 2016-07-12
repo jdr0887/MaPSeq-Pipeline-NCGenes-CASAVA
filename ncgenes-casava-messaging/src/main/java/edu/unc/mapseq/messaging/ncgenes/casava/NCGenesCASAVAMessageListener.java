@@ -156,8 +156,8 @@ public class NCGenesCASAVAMessageListener extends AbstractSequencingMessageListe
 
             File sampleSheet = new File(sampleSheetFileData.getPath(), sampleSheetFileData.getName());
             Reader in = new FileReader(sampleSheet);
-            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withHeader("FCID", "Lane", "SampleID", "SampleRef", "Index",
-                    "Description", "Control", "Recipe", "Operator", "SampleProject").parse(in);
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT.withSkipHeaderRecord().withHeader("FCID", "Lane", "SampleID", "SampleRef",
+                    "Index", "Description", "Control", "Recipe", "Operator", "SampleProject").parse(in);
             final Set<String> studyNameSet = new HashSet<>();
             records.forEach(a -> studyNameSet.add(a.get("SampleProject")));
             Collections.synchronizedSet(studyNameSet);
@@ -321,7 +321,8 @@ public class NCGenesCASAVAMessageListener extends AbstractSequencingMessageListe
 
                 }
 
-                List<SampleWorkflowRunDependency> sampleWorkflowRunDepedencyList = sampleWorkflowRunDependencyDAO.findBySampleId(sample.getId());
+                List<SampleWorkflowRunDependency> sampleWorkflowRunDepedencyList = sampleWorkflowRunDependencyDAO
+                        .findBySampleId(sample.getId());
                 sampleWorkflowRunDependencyDAO.delete(sampleWorkflowRunDepedencyList);
 
                 workflowRunDAO.delete(workflowRuns);
