@@ -1,8 +1,10 @@
 package edu.unc.mapseq.commands.ncgenes.casava;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Command;
@@ -13,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
 import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
+import edu.unc.mapseq.dao.MaPSeqDAOException;
+import edu.unc.mapseq.dao.model.Flowcell;
 
 @Command(scope = "ncgenes-casava", name = "save-demultiplexed-stats-attributes", description = "Save Demultiplexed Stats Attributes")
 @Service
@@ -23,16 +27,28 @@ public class SaveDemultiplexedStatsAttributesAction implements Action {
     @Reference
     private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
-    @Argument(index = 0, name = "flowcellId", description = "Flowcell Identifier", required = true, multiValued = true)
+    @Argument(index = 0, name = "flowcellId", required = true, multiValued = true)
     private List<Long> flowcellIdList;
 
     @Override
     public Object execute() throws Exception {
         logger.debug("ENTERING execute()");
-        SaveDemultiplexedStatsAttributesRunnable runnable = new SaveDemultiplexedStatsAttributesRunnable();
-        runnable.setMaPSeqDAOBeanService(maPSeqDAOBeanService);
-        runnable.setFlowcellIdList(flowcellIdList);
-        Executors.newSingleThreadExecutor().execute(runnable);
+
+        ExecutorService es = Executors.newSingleThreadExecutor();
+        if (CollectionUtils.isNotEmpty(flowcellIdList)) {
+            for (Long flowcellId : flowcellIdList) {
+                try {
+                    Flowcell flowcell = maPSeqDAOBeanService.getFlowcellDAO().findById(flowcellId);
+                    SaveDemultiplexedStatsAttributesRunnable runnable = new SaveDemultiplexedStatsAttributesRunnable(maPSeqDAOBeanService,
+                            flowcell);
+                    es.submit(runnable);
+                } catch (MaPSeqDAOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        es.shutdown();
+
         return null;
     }
 

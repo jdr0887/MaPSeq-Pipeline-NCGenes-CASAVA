@@ -3,7 +3,6 @@ package edu.unc.mapseq.commons.ncgenes.casava;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,9 +30,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import edu.unc.mapseq.dao.AttributeDAO;
-import edu.unc.mapseq.dao.FlowcellDAO;
 import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
-import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
 import edu.unc.mapseq.dao.model.Flowcell;
 import edu.unc.mapseq.dao.model.Sample;
@@ -44,279 +41,260 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
 
     private MaPSeqDAOBeanService maPSeqDAOBeanService;
 
-    private List<Long> flowcellIdList;
+    private Flowcell flowcell;
 
-    public SaveDemultiplexedStatsAttributesRunnable() {
+    public SaveDemultiplexedStatsAttributesRunnable(MaPSeqDAOBeanService maPSeqDAOBeanService, Flowcell flowcell) {
         super();
+        this.maPSeqDAOBeanService = maPSeqDAOBeanService;
+        this.flowcell = flowcell;
     }
 
     @Override
     public void run() {
         logger.debug("ENTERING run()");
 
-        FlowcellDAO flowcellDAO = maPSeqDAOBeanService.getFlowcellDAO();
         AttributeDAO attributeDAO = maPSeqDAOBeanService.getAttributeDAO();
-
-        List<Flowcell> fList = new ArrayList<Flowcell>();
 
         try {
 
-            for (Long flowcellId : getFlowcellIdList()) {
-                Flowcell flowcell = flowcellDAO.findById(flowcellId);
-                if (flowcell != null) {
-                    fList.add(flowcell);
+            File flowcellDir = new File(flowcell.getBaseDirectory(), flowcell.getName());
+            String flowcellProper = null;
+
+            try {
+                DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                File runInfoXmlFile = new File(flowcellDir, "RunInfo.xml");
+                if (!runInfoXmlFile.exists()) {
+                    logger.error("RunInfo.xml file does not exist: {}", runInfoXmlFile.getAbsolutePath());
+                    return;
                 }
+                FileInputStream fis = new FileInputStream(runInfoXmlFile);
+                InputSource inputSource = new InputSource(fis);
+                Document document = documentBuilder.parse(inputSource);
+                XPath xpath = XPathFactory.newInstance().newXPath();
+
+                // find the flowcell
+                String runFlowcellIdPath = "/RunInfo/Run/Flowcell";
+                Node runFlowcellIdNode = (Node) xpath.evaluate(runFlowcellIdPath, document, XPathConstants.NODE);
+                flowcellProper = runFlowcellIdNode.getTextContent();
+                logger.debug("flowcell = {}", flowcellProper);
+
+            } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException | IOException e) {
+                e.printStackTrace();
             }
 
-            if (!fList.isEmpty()) {
+            List<Sample> sampleList = maPSeqDAOBeanService.getSampleDAO().findByFlowcellId(flowcell.getId());
 
-                for (Flowcell flowcell : fList) {
+            if (sampleList == null) {
+                logger.warn("sampleList was null");
+                return;
+            }
 
-                    File flowcellDir = new File(flowcell.getBaseDirectory(), flowcell.getName());
-                    String flowcellProper = null;
+            for (Sample sample : sampleList) {
 
-                    try {
-                        DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-                        File runInfoXmlFile = new File(flowcellDir, "RunInfo.xml");
-                        if (!runInfoXmlFile.exists()) {
-                            logger.error("RunInfo.xml file does not exist: {}", runInfoXmlFile.getAbsolutePath());
-                            return;
-                        }
-                        FileInputStream fis = new FileInputStream(runInfoXmlFile);
-                        InputSource inputSource = new InputSource(fis);
-                        Document document = documentBuilder.parse(inputSource);
-                        XPath xpath = XPathFactory.newInstance().newXPath();
+                File unalignedDir = new File(flowcellDir, String.format("Unaligned.%d", sample.getLaneIndex()));
+                File baseCallStatsDir = new File(unalignedDir, String.format("Basecall_Stats_%s", flowcellProper));
+                File statsFile = new File(baseCallStatsDir, "Demultiplex_Stats.htm");
 
-                        // find the flowcell
-                        String runFlowcellIdPath = "/RunInfo/Run/Flowcell";
-                        Node runFlowcellIdNode = (Node) xpath.evaluate(runFlowcellIdPath, document, XPathConstants.NODE);
-                        flowcellProper = runFlowcellIdNode.getTextContent();
-                        logger.debug("flowcell = {}", flowcellProper);
+                if (!statsFile.exists()) {
+                    logger.warn("statsFile doesn't exist: {}", statsFile.getAbsolutePath());
+                    continue;
+                }
 
-                    } catch (XPathExpressionException | DOMException | ParserConfigurationException | SAXException | IOException e) {
-                        e.printStackTrace();
-                    }
+                logger.info("parsing statsFile: {}", statsFile.getAbsolutePath());
 
-                    List<Sample> sampleList = maPSeqDAOBeanService.getSampleDAO().findByFlowcellId(flowcell.getId());
+                try {
+                    org.jsoup.nodes.Document doc = Jsoup.parse(FileUtils.readFileToString(statsFile));
+                    Iterator<Element> tableIter = doc.select("table").iterator();
+                    tableIter.next();
 
-                    if (sampleList == null) {
-                        logger.warn("sampleList was null");
-                        return;
-                    }
+                    for (Element row : tableIter.next().select("tr")) {
 
-                    for (Sample sample : sampleList) {
+                        Iterator<Element> tdIter = row.select("td").iterator();
 
-                        File unalignedDir = new File(flowcellDir, String.format("Unaligned.%d", sample.getLaneIndex()));
-                        File baseCallStatsDir = new File(unalignedDir, String.format("Basecall_Stats_%s", flowcellProper));
-                        File statsFile = new File(baseCallStatsDir, "Demultiplex_Stats.htm");
+                        Element laneElement = tdIter.next();
+                        Element sampleIdElement = tdIter.next();
+                        Element sampleRefElement = tdIter.next();
+                        Element indexElement = tdIter.next();
+                        Element descriptionElement = tdIter.next();
+                        Element controlElement = tdIter.next();
+                        Element projectElement = tdIter.next();
+                        Element yeildElement = tdIter.next();
+                        Element passingFilteringElement = tdIter.next();
+                        Element numberOfReadsElement = tdIter.next();
+                        Element rawClustersPerLaneElement = tdIter.next();
+                        Element perfectIndexReadsElement = tdIter.next();
+                        Element oneMismatchReadsIndexElement = tdIter.next();
+                        Element q30YeildPassingFilteringElement = tdIter.next();
+                        Element meanQualityScorePassingFilteringElement = tdIter.next();
 
-                        if (!statsFile.exists()) {
-                            logger.warn("statsFile doesn't exist: {}", statsFile.getAbsolutePath());
-                            continue;
-                        }
+                        if (sample.getName().equals(sampleIdElement.text()) && sample.getLaneIndex().toString().equals(laneElement.text())
+                                && sample.getBarcode().equals(indexElement.text())) {
 
-                        logger.info("parsing statsFile: {}", statsFile.getAbsolutePath());
+                            Set<Attribute> attributeSet = sample.getAttributes();
 
-                        try {
-                            org.jsoup.nodes.Document doc = Jsoup.parse(FileUtils.readFileToString(statsFile));
-                            Iterator<Element> tableIter = doc.select("table").iterator();
-                            tableIter.next();
-
-                            for (Element row : tableIter.next().select("tr")) {
-
-                                Iterator<Element> tdIter = row.select("td").iterator();
-
-                                Element laneElement = tdIter.next();
-                                Element sampleIdElement = tdIter.next();
-                                Element sampleRefElement = tdIter.next();
-                                Element indexElement = tdIter.next();
-                                Element descriptionElement = tdIter.next();
-                                Element controlElement = tdIter.next();
-                                Element projectElement = tdIter.next();
-                                Element yeildElement = tdIter.next();
-                                Element passingFilteringElement = tdIter.next();
-                                Element numberOfReadsElement = tdIter.next();
-                                Element rawClustersPerLaneElement = tdIter.next();
-                                Element perfectIndexReadsElement = tdIter.next();
-                                Element oneMismatchReadsIndexElement = tdIter.next();
-                                Element q30YeildPassingFilteringElement = tdIter.next();
-                                Element meanQualityScorePassingFilteringElement = tdIter.next();
-
-                                if (sample.getName().equals(sampleIdElement.text())
-                                        && sample.getLaneIndex().toString().equals(laneElement.text())
-                                        && sample.getBarcode().equals(indexElement.text())) {
-
-                                    Set<Attribute> attributeSet = sample.getAttributes();
-
-                                    if (attributeSet == null) {
-                                        attributeSet = new HashSet<Attribute>();
-                                    }
-
-                                    Set<String> entityAttributeNameSet = new HashSet<String>();
-
-                                    for (Attribute attribute : attributeSet) {
-                                        entityAttributeNameSet.add(attribute.getName());
-                                    }
-
-                                    Set<String> synchSet = Collections.synchronizedSet(entityAttributeNameSet);
-
-                                    if (StringUtils.isNotEmpty(yeildElement.text())) {
-                                        String value = yeildElement.text().replace(",", "");
-                                        if (synchSet.contains("yield")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("yield")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("yield", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(passingFilteringElement.text())) {
-                                        String value = passingFilteringElement.text();
-                                        if (synchSet.contains("passedFiltering")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("passedFiltering")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("passedFiltering", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(numberOfReadsElement.text())) {
-                                        String value = numberOfReadsElement.text().replace(",", "");
-                                        if (synchSet.contains("numberOfReads")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("numberOfReads")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("numberOfReads", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(rawClustersPerLaneElement.text())) {
-                                        String value = rawClustersPerLaneElement.text();
-                                        if (synchSet.contains("rawClustersPerLane")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("rawClustersPerLane")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("rawClustersPerLane", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(perfectIndexReadsElement.text())) {
-                                        String value = perfectIndexReadsElement.text();
-                                        if (synchSet.contains("perfectIndexReads")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("perfectIndexReads")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("perfectIndexReads", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(oneMismatchReadsIndexElement.text())) {
-                                        String value = oneMismatchReadsIndexElement.text();
-                                        if (synchSet.contains("oneMismatchReadsIndex")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("oneMismatchReadsIndex")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("oneMismatchReadsIndex", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(q30YeildPassingFilteringElement.text())) {
-                                        String value = q30YeildPassingFilteringElement.text();
-                                        if (synchSet.contains("q30YieldPassingFiltering")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("q30YieldPassingFiltering")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("q30YieldPassingFiltering", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    if (StringUtils.isNotEmpty(meanQualityScorePassingFilteringElement.text())) {
-                                        String value = meanQualityScorePassingFilteringElement.text();
-                                        if (synchSet.contains("meanQualityScorePassingFiltering")) {
-                                            for (Attribute attribute : attributeSet) {
-                                                if (attribute.getName().equals("meanQualityScorePassingFiltering")) {
-                                                    attribute.setValue(value);
-                                                    attributeDAO.save(attribute);
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            Attribute attribute = new Attribute("meanQualityScorePassingFiltering", value);
-                                            attribute.setId(attributeDAO.save(attribute));
-                                            attributeSet.add(attribute);
-                                        }
-                                    }
-
-                                    sample.setAttributes(attributeSet);
-                                    maPSeqDAOBeanService.getSampleDAO().save(sample);
-                                    System.out.println(String.format("Successfully saved sample: %s", sample.getId()));
-                                    logger.info(sample.toString());
-                                }
-
+                            if (attributeSet == null) {
+                                attributeSet = new HashSet<Attribute>();
                             }
-                        } catch (NumberFormatException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
+
+                            Set<String> entityAttributeNameSet = new HashSet<String>();
+
+                            for (Attribute attribute : attributeSet) {
+                                entityAttributeNameSet.add(attribute.getName());
+                            }
+
+                            Set<String> synchSet = Collections.synchronizedSet(entityAttributeNameSet);
+
+                            if (StringUtils.isNotEmpty(yeildElement.text())) {
+                                String value = yeildElement.text().replace(",", "");
+                                if (synchSet.contains("yield")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("yield")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("yield", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(passingFilteringElement.text())) {
+                                String value = passingFilteringElement.text();
+                                if (synchSet.contains("passedFiltering")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("passedFiltering")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("passedFiltering", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(numberOfReadsElement.text())) {
+                                String value = numberOfReadsElement.text().replace(",", "");
+                                if (synchSet.contains("numberOfReads")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("numberOfReads")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("numberOfReads", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(rawClustersPerLaneElement.text())) {
+                                String value = rawClustersPerLaneElement.text();
+                                if (synchSet.contains("rawClustersPerLane")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("rawClustersPerLane")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("rawClustersPerLane", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(perfectIndexReadsElement.text())) {
+                                String value = perfectIndexReadsElement.text();
+                                if (synchSet.contains("perfectIndexReads")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("perfectIndexReads")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("perfectIndexReads", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(oneMismatchReadsIndexElement.text())) {
+                                String value = oneMismatchReadsIndexElement.text();
+                                if (synchSet.contains("oneMismatchReadsIndex")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("oneMismatchReadsIndex")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("oneMismatchReadsIndex", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(q30YeildPassingFilteringElement.text())) {
+                                String value = q30YeildPassingFilteringElement.text();
+                                if (synchSet.contains("q30YieldPassingFiltering")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("q30YieldPassingFiltering")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("q30YieldPassingFiltering", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(meanQualityScorePassingFilteringElement.text())) {
+                                String value = meanQualityScorePassingFilteringElement.text();
+                                if (synchSet.contains("meanQualityScorePassingFiltering")) {
+                                    for (Attribute attribute : attributeSet) {
+                                        if (attribute.getName().equals("meanQualityScorePassingFiltering")) {
+                                            attribute.setValue(value);
+                                            attributeDAO.save(attribute);
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Attribute attribute = new Attribute("meanQualityScorePassingFiltering", value);
+                                    attribute.setId(attributeDAO.save(attribute));
+                                    attributeSet.add(attribute);
+                                }
+                            }
+
+                            sample.setAttributes(attributeSet);
+                            maPSeqDAOBeanService.getSampleDAO().save(sample);
+                            System.out.println(String.format("Successfully saved sample: %s", sample.getId()));
+                            logger.info(sample.toString());
                         }
 
                     }
-
+                } catch (NumberFormatException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
 
             }
 
-        } catch (MaPSeqDAOException e) {
-            e.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -330,12 +308,12 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
         this.maPSeqDAOBeanService = maPSeqDAOBeanService;
     }
 
-    public List<Long> getFlowcellIdList() {
-        return flowcellIdList;
+    public Flowcell getFlowcell() {
+        return flowcell;
     }
 
-    public void setFlowcellIdList(List<Long> flowcellIdList) {
-        this.flowcellIdList = flowcellIdList;
+    public void setFlowcell(Flowcell flowcell) {
+        this.flowcell = flowcell;
     }
 
 }
