@@ -320,14 +320,15 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                         }
 
-                        builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class, attempt.getId()).siteName(siteName);
-                        builder.addArgument(RemoveCLI.FILE, unalignedDir);
-                        CondorJob removeUnalignedDirectoryJob = builder.build();
-                        logger.info(removeUnalignedDirectoryJob.toString());
-                        graph.addVertex(removeUnalignedDirectoryJob);
-                        for (CondorJob copyJob : copyJobList) {
-                            graph.addEdge(copyJob, removeUnalignedDirectoryJob);
-                        }
+                        // builder = WorkflowJobFactory.createJob(++count, RemoveCLI.class,
+                        // attempt.getId()).siteName(siteName);
+                        // builder.addArgument(RemoveCLI.FILE, unalignedDir);
+                        // CondorJob removeUnalignedDirectoryJob = builder.build();
+                        // logger.info(removeUnalignedDirectoryJob.toString());
+                        // graph.addVertex(removeUnalignedDirectoryJob);
+                        // for (CondorJob copyJob : copyJobList) {
+                        // graph.addEdge(copyJob, removeUnalignedDirectoryJob);
+                        // }
                     }
 
                 }
