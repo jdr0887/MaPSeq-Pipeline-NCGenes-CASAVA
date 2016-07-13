@@ -2,10 +2,13 @@ package edu.unc.mapseq.workflow.ncgenes.casava;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +25,7 @@ import org.renci.jlrm.condor.CondorJobEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.unc.mapseq.commons.ncgenes.casava.FindReadCountCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.RegisterToIRODSRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveObservedClusterDensityAttributesRunnable;
@@ -339,6 +343,63 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         }
 
         return graph;
+    }
+
+    @Override
+    public void init() throws WorkflowException {
+        super.init();
+
+        try {
+            List<Flowcell> flowcellList = getWorkflowBeanService().getMaPSeqDAOBeanService().getFlowcellDAO()
+                    .findByWorkflowRunId(getWorkflowRunAttempt().getWorkflowRun().getId());
+
+            if (CollectionUtils.isNotEmpty(flowcellList)) {
+                String flowcellStagingDirectory = getWorkflowBeanService().getAttributes().get("flowcellStagingDirectory");
+
+                for (Flowcell flowcell : flowcellList) {
+                    File flowcellStagingDir = new File(flowcellStagingDirectory, flowcell.getName());
+
+                    File runInfoXmlFile = new File(flowcellStagingDir, "RunInfo.xml");
+                    if (!runInfoXmlFile.exists()) {
+                        logger.error("RunInfo.xml file does not exist: {}", runInfoXmlFile.getAbsolutePath());
+                        throw new WorkflowException("Invalid SampleSheet: " + flowcell.getName());
+                    }
+
+                    Integer readCount = Executors.newSingleThreadExecutor().submit(new FindReadCountCallable(runInfoXmlFile)).get();
+
+                    logger.debug("readCount = {}", readCount);
+
+                    Set<String> attributeNameSet = new HashSet<String>();
+                    if (CollectionUtils.isNotEmpty(flowcell.getAttributes())) {
+                        for (Attribute attribute : flowcell.getAttributes()) {
+                            attributeNameSet.add(attribute.getName());
+                        }
+                    }
+
+                    Collections.synchronizedSet(attributeNameSet);
+                    if (attributeNameSet.contains("readCount")) {
+                        for (Attribute attribute : flowcell.getAttributes()) {
+                            if ("readCount".equals(attribute.getName())) {
+                                attribute.setValue(readCount.toString());
+                                getWorkflowBeanService().getMaPSeqDAOBeanService().getAttributeDAO().save(attribute);
+                                break;
+                            }
+                        }
+                    } else {
+                        Attribute attribute = new Attribute("readCount", readCount.toString());
+                        attribute.setId(getWorkflowBeanService().getMaPSeqDAOBeanService().getAttributeDAO().save(attribute));
+                        flowcell.getAttributes().add(attribute);
+                        getWorkflowBeanService().getMaPSeqDAOBeanService().getFlowcellDAO().save(flowcell);
+                    }
+
+                }
+
+            }
+        } catch (MaPSeqDAOException | InterruptedException | ExecutionException e) {
+            logger.error("init error", e);
+            throw new WorkflowException("init error: ", e);
+        }
+
     }
 
     @Override
