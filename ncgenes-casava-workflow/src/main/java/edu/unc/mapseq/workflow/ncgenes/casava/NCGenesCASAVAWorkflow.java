@@ -357,8 +357,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                 for (Flowcell flowcell : flowcellList) {
 
-                    RegisterToIRODSRunnable registerToIRODSRunnable = new RegisterToIRODSRunnable(mapseqDAOBeanService,
-                            attempt.getWorkflowRun());
+                    RegisterToIRODSRunnable registerToIRODSRunnable = new RegisterToIRODSRunnable(mapseqDAOBeanService);
                     registerToIRODSRunnable.setFlowcellId(flowcell.getId());
                     es.submit(registerToIRODSRunnable);
 
