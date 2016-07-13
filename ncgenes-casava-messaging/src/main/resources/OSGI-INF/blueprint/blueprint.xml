@@ -9,11 +9,11 @@
   <bean id="NCGenesCASAVAMessageListener" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageListener">
     <property name="workflowBeanService" ref="NCGenesCASAVAWorkflowBeanService" />
     <property name="workflowName" value="NCGenesCASAVA" />
-  <property name="studyName" value="NC_GENES" />
+    <property name="studyName" value="NC_GENES" />
   </bean>
 
-  <bean id="NCGenesCASAVAMessagingService" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageService"
-    init-method="start" destroy-method="stop" activation="eager">
+  <bean id="NCGenesCASAVAMessagingService" class="edu.unc.mapseq.messaging.ncgenes.casava.NCGenesCASAVAMessageService" init-method="start"
+    destroy-method="stop" activation="eager">
     <property name="connectionFactory" ref="connectionFactory" />
     <property name="messageListener" ref="NCGenesCASAVAMessageListener" />
     <property name="destinationName" value="queue/ncgenes.casava" />
