@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
@@ -26,7 +27,7 @@ import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.MimeType;
 import edu.unc.mapseq.dao.model.Sample;
-import edu.unc.mapseq.dao.model.WorkflowRun;
+import edu.unc.mapseq.dao.model.Workflow;
 import edu.unc.mapseq.workflow.sequencing.IRODSBean;
 import edu.unc.mapseq.workflow.sequencing.SequencingWorkflowUtil;
 
@@ -40,12 +41,9 @@ public class RegisterToIRODSRunnable implements Runnable {
 
     private Long sampleId;
 
-    private WorkflowRun workflowRun;
-
-    public RegisterToIRODSRunnable(MaPSeqDAOBeanService maPSeqDAOBeanService, WorkflowRun workflowRun) {
+    public RegisterToIRODSRunnable(MaPSeqDAOBeanService maPSeqDAOBeanService) {
         super();
         this.maPSeqDAOBeanService = maPSeqDAOBeanService;
-        this.workflowRun = workflowRun;
     }
 
     @Override
@@ -54,26 +52,31 @@ public class RegisterToIRODSRunnable implements Runnable {
 
         Set<Sample> sampleSet = new HashSet<Sample>();
 
-        if (sampleId != null) {
-            try {
-                sampleSet.add(maPSeqDAOBeanService.getSampleDAO().findById(sampleId));
-            } catch (MaPSeqDAOException e1) {
-                e1.printStackTrace();
-                return;
-            }
-        }
+        List<Workflow> workflowList = null;
 
-        if (flowcellId != null) {
-            try {
+        try {
+            if (sampleId != null) {
+                sampleSet.add(maPSeqDAOBeanService.getSampleDAO().findById(sampleId));
+            }
+
+            if (flowcellId != null) {
                 List<Sample> samples = maPSeqDAOBeanService.getSampleDAO().findByFlowcellId(flowcellId);
                 if (samples != null && !samples.isEmpty()) {
                     sampleSet.addAll(samples);
                 }
-            } catch (MaPSeqDAOException e1) {
-                e1.printStackTrace();
+            }
+
+            workflowList = maPSeqDAOBeanService.getWorkflowDAO().findByName("NCGenesCASAVA");
+            if (CollectionUtils.isEmpty(workflowList)) {
                 return;
             }
+
+        } catch (MaPSeqDAOException e1) {
+            e1.printStackTrace();
+            return;
         }
+
+        Workflow workflow = workflowList.get(0);
 
         BundleContext bundleContext = FrameworkUtil.getBundle(getClass()).getBundleContext();
         Bundle bundle = bundleContext.getBundle();
@@ -83,7 +86,7 @@ public class RegisterToIRODSRunnable implements Runnable {
         for (Sample sample : sampleSet) {
             es.submit(() -> {
 
-                File outputDirectory = SequencingWorkflowUtil.createOutputDirectory(sample, workflowRun.getWorkflow());
+                File outputDirectory = SequencingWorkflowUtil.createOutputDirectory(sample, workflow);
                 File tmpDir = new File(outputDirectory, "tmp");
                 if (!tmpDir.exists()) {
                     tmpDir.mkdirs();
@@ -96,8 +99,8 @@ public class RegisterToIRODSRunnable implements Runnable {
                 String participantId = idx != -1 ? sample.getName().substring(0, idx) : sample.getName();
 
                 String irodsDirectory = String.format("/MedGenZone/%s/sequencing/ncgenes/analysis/%s/L%03d_%s/%s",
-                        workflowRun.getWorkflow().getSystem().getValue(), sample.getFlowcell().getName(), sample.getLaneIndex(),
-                        sample.getBarcode(), workflowRun.getWorkflow().getName());
+                        workflow.getSystem().getValue(), sample.getFlowcell().getName(), sample.getLaneIndex(), sample.getBarcode(),
+                        workflow.getName());
 
                 CommandOutput commandOutput = null;
 
@@ -118,11 +121,11 @@ public class RegisterToIRODSRunnable implements Runnable {
                 List<ImmutablePair<String, String>> attributeList = Arrays.asList(
                         new ImmutablePair<String, String>("ParticipantId", participantId),
                         new ImmutablePair<String, String>("MaPSeqWorkflowVersion", version),
-                        new ImmutablePair<String, String>("MaPSeqWorkflowName", workflowRun.getWorkflow().getName()),
+                        new ImmutablePair<String, String>("MaPSeqWorkflowName", workflow.getName()),
                         new ImmutablePair<String, String>("MaPSeqMimeType", MimeType.FASTQ.toString()),
                         new ImmutablePair<String, String>("MaPSeqStudyName", sample.getStudy().getName()),
                         new ImmutablePair<String, String>("MaPSeqSampleId", sample.getId().toString()),
-                        new ImmutablePair<String, String>("MaPSeqSystem", workflowRun.getWorkflow().getSystem().getValue()),
+                        new ImmutablePair<String, String>("MaPSeqSystem", workflow.getSystem().getValue()),
                         new ImmutablePair<String, String>("MaPSeqFlowcellId", sample.getFlowcell().getId().toString()));
 
                 files2RegisterToIRODS.add(new IRODSBean(readPairList.get(0), attributeList));
@@ -188,14 +191,6 @@ public class RegisterToIRODSRunnable implements Runnable {
 
         }
 
-    }
-
-    public WorkflowRun getWorkflowRun() {
-        return workflowRun;
-    }
-
-    public void setWorkflowRun(WorkflowRun workflowRun) {
-        this.workflowRun = workflowRun;
     }
 
     public MaPSeqDAOBeanService getMaPSeqDAOBeanService() {
