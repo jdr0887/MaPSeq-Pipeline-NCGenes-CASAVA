@@ -69,7 +69,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         WorkflowRun workflowRun = attempt.getWorkflowRun();
 
         boolean allowMismatches = true;
-        Integer barcodeLength = Integer.valueOf(8);
+        Integer barcodeLength = Integer.valueOf(6);
 
         String siteName = getWorkflowBeanService().getAttributes().get("siteName");
         String flowcellStagingDirectory = getWorkflowBeanService().getAttributes().get("flowcellStagingDirectory");
