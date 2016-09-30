@@ -155,14 +155,13 @@ public class NCGenesCASAVAMessageListener extends AbstractSequencingMessageListe
 
             logger.debug("fileData.toString(): {}", sampleSheetFileData.toString());
 
-
             File sampleSheet = new File(sampleSheetFileData.getPath(), sampleSheetFileData.getName());
             Reader in = new FileReader(sampleSheet);
             CSVFormat csvFormat = CSVFormat.DEFAULT.withSkipHeaderRecord().withHeader("FCID", "Lane", "SampleID", "SampleRef", "Index",
                     "Description", "Control", "Recipe", "Operator", "SampleProject");
             CSVParser parser = csvFormat.parse(in);
             List<CSVRecord> records = parser.getRecords();
-            
+
             final Set<String> studyNameSet = new HashSet<>();
             records.forEach(a -> studyNameSet.add(a.get("SampleProject")));
             Collections.synchronizedSet(studyNameSet);
