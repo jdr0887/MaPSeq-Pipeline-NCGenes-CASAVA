@@ -45,7 +45,7 @@ public class CASAVAMessageTest {
             generator.writeStartObject();
             generator.writeStringField("entityType", "WorkflowRun");
             generator.writeStringField("name", "NCG.160601_UNC18-D00493_0325_BC8GP3ANXX.CASAVA");
-            
+
             generator.writeArrayFieldStart("attributes");
 
             generator.writeStartObject();
@@ -57,7 +57,7 @@ public class CASAVAMessageTest {
             generator.writeStringField("name", "barcodeLength");
             generator.writeStringField("value", "6");
             generator.writeEndObject();
-            
+
             generator.writeEndArray();
             generator.writeEndObject();
 
