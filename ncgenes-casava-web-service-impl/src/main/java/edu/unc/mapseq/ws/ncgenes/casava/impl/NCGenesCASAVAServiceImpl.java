@@ -30,23 +30,9 @@ public class NCGenesCASAVAServiceImpl implements NCGenesCASAVAService {
         FileData fileData = null;
         try {
 
-            File flowcellDirectory = new File(System.getenv("MAPSEQ_OUTPUT_DIRECTORY"), flowcellName);
-
-            if (!flowcellDirectory.getParentFile().canWrite()) {
-                logger.error("Can't write to {}", flowcellDirectory.getParentFile().getAbsolutePath());
-                return null;
-            }
-
-            File flowcellSampleSheetDirectory = new File(flowcellDirectory, "SampleSheets");
-
-            if (!flowcellSampleSheetDirectory.exists()) {
-                flowcellSampleSheetDirectory.mkdirs();
-            }
-
-            logger.info("flowcellDirectory.getAbsolutePath(): {}", flowcellDirectory.getAbsolutePath());
-
-            String name = String.format("%s.csv", flowcellName);
-            File file = new File(flowcellSampleSheetDirectory, name);
+            File file = new File("/projects/sequence_analysis/medgenwork/prod/NC_GENES/SampleSheets",
+                    String.format("%s.csv", flowcellName));
+            logger.info("file.getAbsolutePath(): {}", file.getAbsolutePath());
 
             InputStream is = data.getInputStream();
             FileOutputStream fos = new FileOutputStream(file);
