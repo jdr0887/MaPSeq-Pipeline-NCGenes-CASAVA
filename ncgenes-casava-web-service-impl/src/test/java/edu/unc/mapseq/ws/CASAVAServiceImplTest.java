@@ -21,11 +21,11 @@ public class CASAVAServiceImplTest {
 
     @Test
     public void testUpload() {
-
-        QName serviceQName = new QName("http://casava.ws.mapseq.unc.edu", "CASAVAService");
+        
+        QName serviceQName = new QName("http://casava.ncgenes.ws.mapseq.unc.edu", "NCGenesCASAVAService");
         Service service = Service.create(serviceQName);
-        QName portQName = new QName("http://casava.ws.mapseq.unc.edu", "CASAVAPort");
-        service.addPort(portQName, SOAPBinding.SOAP11HTTP_BINDING, String.format("http://%s:%d/cxf/CASAVAService", "152.19.198.146", 8181));
+        QName portQName = new QName("http://casava.ncgenes.ws.mapseq.unc.edu", "NCGenesCASAVAPort");
+        service.addPort(portQName, SOAPBinding.SOAP11HTTP_BINDING, String.format("http://%s:%d/cxf/NCGenesCASAVAService", "152.54.3.109", 8181));
         NCGenesCASAVAService casavaService = service.getPort(NCGenesCASAVAService.class);
 
         Client cl = ClientProxy.getClient(casavaService);
@@ -37,9 +37,10 @@ public class CASAVAServiceImplTest {
 
         try {
             // File f = new File("/home/jdr0887", "140912_UNC17-D00216_0247_BC4G46ANXX.csv");
-            File f = new File("/home/jdr0887", "141006_UNC17-D00216_0249_BC4G45ANXX.csv");
+            //File f = new File("/home/jdr0887", "141006_UNC17-D00216_0249_BC4G45ANXX.csv");
+            File f = new File("/home/jdr0887", "161003_UNC17-D00216_0410_BC9T7RANXX.csv");
             DataHandler handler = new DataHandler(f.toURI().toURL());
-            Long id = casavaService.uploadSampleSheet(handler, "141006_UNC17-D00216_0249_BC4G45ANXX");
+            Long id = casavaService.uploadSampleSheet(handler, "161003_UNC17-D00216_0410_BC9T7RANXX");
             System.out.println(id);
         } catch (MalformedURLException e) {
             e.printStackTrace();
