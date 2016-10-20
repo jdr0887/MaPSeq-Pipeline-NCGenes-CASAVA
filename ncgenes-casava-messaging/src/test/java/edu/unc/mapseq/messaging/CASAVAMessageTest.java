@@ -39,12 +39,12 @@ public class CASAVAMessageTest {
 
             generator.writeStartObject();
             generator.writeStringField("entityType", "FileData");
-            generator.writeStringField("id", "793001");
+            generator.writeStringField("id", "798238");
             generator.writeEndObject();
 
             generator.writeStartObject();
             generator.writeStringField("entityType", "WorkflowRun");
-            generator.writeStringField("name", "NCG.160601_UNC18-D00493_0325_BC8GP3ANXX.CASAVA");
+            generator.writeStringField("name", "NCG.161003_UNC17-D00216_0410_BC9T7RANXX.CASAVA");
 
             generator.writeArrayFieldStart("attributes");
 
