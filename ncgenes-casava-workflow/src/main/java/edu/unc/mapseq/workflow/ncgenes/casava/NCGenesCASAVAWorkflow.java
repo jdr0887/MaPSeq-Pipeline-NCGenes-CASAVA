@@ -194,7 +194,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
                                 .siteName(siteName);
                         builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
                                 .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGSTATS)
-                                .addArgument(ConfigureBCLToFastqCLI.INDEXLENGTH, barcodeLength)
+                                // .addArgument(ConfigureBCLToFastqCLI.INDEXLENGTH, barcodeLength)
                                 .addArgument(ConfigureBCLToFastqCLI.FASTQCLUSTERCOUNT, "0")
                                 .addArgument(ConfigureBCLToFastqCLI.TILES, laneIndex.toString())
                                 .addArgument(ConfigureBCLToFastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
