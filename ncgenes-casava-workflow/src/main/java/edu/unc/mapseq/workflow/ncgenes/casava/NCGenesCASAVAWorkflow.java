@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang.math.NumberUtils;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultDirectedGraph;
@@ -25,6 +24,7 @@ import org.renci.jlrm.condor.CondorJobEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import edu.unc.mapseq.commons.ncgenes.casava.CreateBasesMaskCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.FindReadCountCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.RegisterToIRODSRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
@@ -69,7 +69,6 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         WorkflowRun workflowRun = attempt.getWorkflowRun();
 
         boolean allowMismatches = true;
-        Integer barcodeLength = Integer.valueOf(6);
 
         String siteName = getWorkflowBeanService().getAttributes().get("siteName");
         String flowcellStagingDirectory = getWorkflowBeanService().getAttributes().get("flowcellStagingDirectory");
@@ -78,9 +77,6 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
         for (Attribute attribute : workflowRunAttributeList) {
             if (attribute.getName().equals("allowMismatches") && attribute.getValue().equalsIgnoreCase("false")) {
                 allowMismatches = false;
-            }
-            if (attribute.getName().equals("barcodeLength") && NumberUtils.isNumber(attribute.getValue())) {
-                barcodeLength = Integer.valueOf(attribute.getValue());
             }
         }
 
@@ -186,6 +182,10 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                 if (MapUtils.isNotEmpty(laneMap)) {
 
+                    File runInfoXmlFile = new File(flowcellStagingDir, "RunInfo.xml");
+                    String basesMask = Executors.newSingleThreadExecutor()
+                            .submit(new CreateBasesMaskCallable(runInfoXmlFile, sampleSheetFile)).get();
+
                     for (Integer laneIndex : laneMap.keySet()) {
 
                         File unalignedDir = new File(bclFlowcellDir, String.format("%s.%d", "Unaligned", laneIndex));
@@ -194,7 +194,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
                                 .siteName(siteName);
                         builder.addArgument(ConfigureBCLToFastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
                                 .addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGBCL).addArgument(ConfigureBCLToFastqCLI.IGNOREMISSINGSTATS)
-                                // .addArgument(ConfigureBCLToFastqCLI.INDEXLENGTH, barcodeLength)
+                                .addArgument(ConfigureBCLToFastqCLI.BASESMASK, basesMask)
                                 .addArgument(ConfigureBCLToFastqCLI.FASTQCLUSTERCOUNT, "0")
                                 .addArgument(ConfigureBCLToFastqCLI.TILES, laneIndex.toString())
                                 .addArgument(ConfigureBCLToFastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
