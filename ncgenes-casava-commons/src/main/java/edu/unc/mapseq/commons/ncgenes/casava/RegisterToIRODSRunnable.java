@@ -95,8 +95,10 @@ public class RegisterToIRODSRunnable implements Runnable {
                 List<File> readPairList = SequencingWorkflowUtil.getReadPairList(sample);
 
                 // assumption: a dash is used as a delimiter between a participantId and the external code
-                int idx = sample.getName().lastIndexOf("-");
-                String participantId = idx != -1 ? sample.getName().substring(0, idx) : sample.getName();
+                // int idx = sample.getName().lastIndexOf("-");
+                // String participantId = idx != -1 ? sample.getName().substring(0, idx) : sample.getName();
+                // no longer expecting composite for participantId...can just use sample name
+                String participantId = sample.getName();
 
                 String irodsDirectory = String.format("/MedGenZone/%s/sequencing/ncgenes/analysis/%s/L%03d_%s/%s",
                         workflow.getSystem().getValue(), sample.getFlowcell().getName(), sample.getLaneIndex(), sample.getBarcode(),
