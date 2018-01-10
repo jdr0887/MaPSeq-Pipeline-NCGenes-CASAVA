@@ -3,7 +3,6 @@ package edu.unc.mapseq.commons.ncgenes.casava;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -21,6 +20,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.DOMException;
@@ -91,202 +91,125 @@ public class SaveDemultiplexedStatsAttributesRunnable implements Runnable {
 
             for (Sample sample : sampleList) {
 
-                File unalignedDir = new File(flowcellDir, String.format("Unaligned.%d", sample.getLaneIndex()));
-                File baseCallStatsDir = new File(unalignedDir, String.format("Basecall_Stats_%s", flowcellProper));
-                File statsFile = new File(baseCallStatsDir, "Demultiplex_Stats.htm");
+                File laneBarcodeHTMLFile = new File(String.format("%s/Unaligned.%s/Reports/html/%s/%s/%s/%s", flowcellDir.getAbsolutePath(),
+                        sample.getLaneIndex(), flowcellProper, sample.getStudy().getName(), sample.getName(), sample.getBarcode()),
+                        "laneBarcode.html");
 
-                if (!statsFile.exists()) {
-                    logger.warn("statsFile doesn't exist: {}", statsFile.getAbsolutePath());
+                if (!laneBarcodeHTMLFile.exists()) {
+                    logger.warn("laneBarcodeHTMLFile doesn't exist: {}", laneBarcodeHTMLFile.getAbsolutePath());
                     continue;
                 }
 
-                logger.info("parsing statsFile: {}", statsFile.getAbsolutePath());
+                logger.info("parsing laneBarcodeHTMLFile: {}", laneBarcodeHTMLFile.getAbsolutePath());
+
+                Set<Attribute> attributeSet = sample.getAttributes();
+
+                if (attributeSet == null) {
+                    attributeSet = new HashSet<Attribute>();
+                }
 
                 try {
-                    org.jsoup.nodes.Document doc = Jsoup.parse(FileUtils.readFileToString(statsFile));
+                    org.jsoup.nodes.Document doc = Jsoup.parse(FileUtils.readFileToString(laneBarcodeHTMLFile));
                     Iterator<Element> tableIter = doc.select("table").iterator();
+                    tableIter.next();
                     tableIter.next();
 
                     for (Element row : tableIter.next().select("tr")) {
 
-                        Iterator<Element> tdIter = row.select("td").iterator();
+                        Elements elements = row.select("td");
 
-                        Element laneElement = tdIter.next();
-                        Element sampleIdElement = tdIter.next();
-                        Element sampleRefElement = tdIter.next();
-                        Element indexElement = tdIter.next();
-                        Element descriptionElement = tdIter.next();
-                        Element controlElement = tdIter.next();
-                        Element projectElement = tdIter.next();
-                        Element yeildElement = tdIter.next();
-                        Element passingFilteringElement = tdIter.next();
-                        Element numberOfReadsElement = tdIter.next();
-                        Element rawClustersPerLaneElement = tdIter.next();
-                        Element perfectIndexReadsElement = tdIter.next();
-                        Element oneMismatchReadsIndexElement = tdIter.next();
-                        Element q30YeildPassingFilteringElement = tdIter.next();
-                        Element meanQualityScorePassingFilteringElement = tdIter.next();
-
-                        if (sample.getName().equals(sampleIdElement.text()) && sample.getLaneIndex().toString().equals(laneElement.text())
-                                && sample.getBarcode().equals(indexElement.text())) {
-
-                            Set<Attribute> attributeSet = sample.getAttributes();
-
-                            if (attributeSet == null) {
-                                attributeSet = new HashSet<Attribute>();
-                            }
-
-                            Set<String> entityAttributeNameSet = new HashSet<String>();
-
-                            for (Attribute attribute : attributeSet) {
-                                entityAttributeNameSet.add(attribute.getName());
-                            }
-
-                            Set<String> synchSet = Collections.synchronizedSet(entityAttributeNameSet);
-
-                            if (StringUtils.isNotEmpty(yeildElement.text())) {
-                                String value = yeildElement.text().replace(",", "");
-                                if (synchSet.contains("yield")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("yield")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("yield", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(passingFilteringElement.text())) {
-                                String value = passingFilteringElement.text();
-                                if (synchSet.contains("passedFiltering")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("passedFiltering")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("passedFiltering", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(numberOfReadsElement.text())) {
-                                String value = numberOfReadsElement.text().replace(",", "");
-                                if (synchSet.contains("numberOfReads")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("numberOfReads")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("numberOfReads", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(rawClustersPerLaneElement.text())) {
-                                String value = rawClustersPerLaneElement.text();
-                                if (synchSet.contains("rawClustersPerLane")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("rawClustersPerLane")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("rawClustersPerLane", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(perfectIndexReadsElement.text())) {
-                                String value = perfectIndexReadsElement.text();
-                                if (synchSet.contains("perfectIndexReads")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("perfectIndexReads")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("perfectIndexReads", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(oneMismatchReadsIndexElement.text())) {
-                                String value = oneMismatchReadsIndexElement.text();
-                                if (synchSet.contains("oneMismatchReadsIndex")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("oneMismatchReadsIndex")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("oneMismatchReadsIndex", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(q30YeildPassingFilteringElement.text())) {
-                                String value = q30YeildPassingFilteringElement.text();
-                                if (synchSet.contains("q30YieldPassingFiltering")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("q30YieldPassingFiltering")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("q30YieldPassingFiltering", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            if (StringUtils.isNotEmpty(meanQualityScorePassingFilteringElement.text())) {
-                                String value = meanQualityScorePassingFilteringElement.text();
-                                if (synchSet.contains("meanQualityScorePassingFiltering")) {
-                                    for (Attribute attribute : attributeSet) {
-                                        if (attribute.getName().equals("meanQualityScorePassingFiltering")) {
-                                            attribute.setValue(value);
-                                            attributeDAO.save(attribute);
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    Attribute attribute = new Attribute("meanQualityScorePassingFiltering", value);
-                                    attribute.setId(attributeDAO.save(attribute));
-                                    attributeSet.add(attribute);
-                                }
-                            }
-
-                            sample.setAttributes(attributeSet);
-                            maPSeqDAOBeanService.getSampleDAO().save(sample);
-                            System.out.println(String.format("Successfully saved sample: %s", sample.getId()));
-                            logger.info(sample.toString());
+                        if (elements.isEmpty()) {
+                            continue;
                         }
 
+                        Iterator<Element> tdIter = elements.iterator();
+
+                        Element laneElement = tdIter.next();
+                        
+                        Element numberOfReadsElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(numberOfReadsElement.text())) {
+                            String key = "numberOfReads";
+                            String value = numberOfReadsElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element percentOfTheLaneElement = tdIter.next();
+
+                        Element percentOfTheBarcodeElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(percentOfTheBarcodeElement.text())) {
+                            String key = "perfectIndexReads";
+                            String value = percentOfTheBarcodeElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element percentOneMismatchElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(percentOneMismatchElement.text())) {
+                            String key = "oneMismatchReadsIndex";
+                            String value = percentOneMismatchElement.text().replace("NaN", "");
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element yeildElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(yeildElement.text())) {
+                            String key = "yield";
+                            String value = yeildElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element percentPassingFilteringClustersElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(percentPassingFilteringClustersElement.text())) {
+                            String key = "passingFiltering";
+                            String value = percentPassingFilteringClustersElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element q30YeildElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(q30YeildElement.text())) {
+                            String key = "q30YieldPassingFiltering";
+                            String value = q30YeildElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        Element meanQualityScoreElement = tdIter.next();
+                        if (StringUtils.isNotEmpty(meanQualityScoreElement.text())) {
+                            String key = "meanQualityScorePassingFiltering";
+                            String value = meanQualityScoreElement.text();
+                            Attribute attribute = attributeSet.stream().filter(a -> a.getName().equals(key)).findAny()
+                                    .orElse(new Attribute(key, null));
+                            attribute.setValue(value);
+                            attribute.setId(attributeDAO.save(attribute));
+                            attributeSet.add(attribute);
+                        }
+
+                        sample.setAttributes(attributeSet);
+                        maPSeqDAOBeanService.getSampleDAO().save(sample);
+                        logger.info(sample.toString());
                     }
+
                 } catch (NumberFormatException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
