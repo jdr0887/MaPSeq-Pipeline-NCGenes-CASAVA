@@ -28,7 +28,6 @@ import edu.unc.mapseq.commons.ncgenes.casava.CreateBasesMaskCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.FindReadCountCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.RegisterToIRODSRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
-import edu.unc.mapseq.commons.ncgenes.casava.SaveObservedClusterDensityAttributesRunnable;
 import edu.unc.mapseq.dao.MaPSeqDAOBeanService;
 import edu.unc.mapseq.dao.MaPSeqDAOException;
 import edu.unc.mapseq.dao.model.Attribute;
@@ -40,7 +39,6 @@ import edu.unc.mapseq.dao.model.WorkflowRun;
 import edu.unc.mapseq.dao.model.WorkflowRunAttempt;
 import edu.unc.mapseq.module.core.CopyDirectoryCLI;
 import edu.unc.mapseq.module.core.CopyFile2CLI;
-import edu.unc.mapseq.module.core.CopyFileCLI;
 import edu.unc.mapseq.module.core.RemoveCLI;
 import edu.unc.mapseq.module.sequencing.bcl2fastq.BCL2FastqCLI;
 import edu.unc.mapseq.workflow.WorkflowException;
@@ -177,12 +175,13 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
                         File unalignedDir = new File(bclFlowcellDir, String.format("%s.%d", "Unaligned", laneIndex));
 
                         CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, BCL2FastqCLI.class, attempt.getId())
-                                .numberOfProcessors(4).siteName(siteName);
+                                .numberOfProcessors(5).siteName(siteName);
                         builder.addArgument(BCL2FastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
                                 .addArgument(BCL2FastqCLI.IGNOREMISSINGBCLS).addArgument(BCL2FastqCLI.USESBASESMASK, basesMask)
                                 .addArgument(BCL2FastqCLI.TILES, String.format("s_%d_*", laneIndex))
                                 .addArgument(BCL2FastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
-                                .addArgument(BCL2FastqCLI.PROCESSINGTHREADS, "4")
+                                .addArgument(BCL2FastqCLI.LOADINGTHREADS, "4").addArgument(BCL2FastqCLI.PROCESSINGTHREADS, "4")
+                                .addArgument(BCL2FastqCLI.WRITINGTHREADS, "4")
                                 .addArgument(BCL2FastqCLI.RUNFOLDERDIR, bclFlowcellDir.getAbsolutePath())
                                 .addArgument(BCL2FastqCLI.SAMPLESHEET, sampleSheetFile.getAbsolutePath());
 
@@ -220,7 +219,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
                             switch (readCount) {
                                 case 1:
                                     builder = SequencingWorkflowJobFactory
-                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+                                            .createJob(++count, CopyFile2CLI.class, attempt.getId(), sample.getId()).siteName(siteName);
 
                                     outputFile = new File(workflowDirectory, String.format("%s_%s_L%03d_R%d.fastq.gz", flowcell.getName(),
                                             sample.getBarcode(), laneIndex, 1));
@@ -241,7 +240,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                                     // read 1
                                     builder = SequencingWorkflowJobFactory
-                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+                                            .createJob(++count, CopyFile2CLI.class, attempt.getId(), sample.getId()).siteName(siteName);
 
                                     outputFile = new File(workflowDirectory,
                                             String.format("%s_%s_L%03d_R1.fastq.gz", flowcell.getName(), sample.getBarcode(), laneIndex));
@@ -259,7 +258,7 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                                     // read 2
                                     builder = SequencingWorkflowJobFactory
-                                            .createJob(++count, CopyFileCLI.class, attempt.getId(), sample.getId()).siteName(siteName);
+                                            .createJob(++count, CopyFile2CLI.class, attempt.getId(), sample.getId()).siteName(siteName);
 
                                     outputFile = new File(workflowDirectory,
                                             String.format("%s_%s_L%03d_R2.fastq.gz", flowcell.getName(), sample.getBarcode(), laneIndex));
