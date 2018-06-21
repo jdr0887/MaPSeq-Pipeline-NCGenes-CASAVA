@@ -51,9 +51,6 @@ public class CreateBasesMaskCallable implements Callable<String> {
         try (FileReader fr = new FileReader(sampleSheet); BufferedReader br = new BufferedReader(fr)) {
             // skip header
             br.readLine();
-            br.readLine();
-            br.readLine();
-            br.readLine();
             String line = br.readLine();
             String[] lineSplit = line.split(",");
             String index = lineSplit[6];
