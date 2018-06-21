@@ -53,7 +53,7 @@ public class CreateBasesMaskCallable implements Callable<String> {
             br.readLine();
             String line = br.readLine();
             String[] lineSplit = line.split(",");
-            String index = lineSplit[6];
+            String index = lineSplit[4];
             if (index.contains("-")) {
                 readIndex1Length = Integer.valueOf(index.substring(0, index.indexOf("-")).length());
                 readIndex2Length = Integer.valueOf(index.substring(index.indexOf("-") + 1, index.length()).length());
@@ -87,7 +87,13 @@ public class CreateBasesMaskCallable implements Callable<String> {
                     }
                 }
 
-                switch (readIndexNodes.size()) {
+                int indexedReadCount = readIndexNodes.size();
+
+                if (indexedReadCount == 2 && readIndex2Length == null) {
+                    indexedReadCount = 1;
+                }
+
+                switch (indexedReadCount) {
                     case 2:
 
                         Node readNode = readIndexNodes.get(0);
@@ -142,7 +148,9 @@ public class CreateBasesMaskCallable implements Callable<String> {
     public static void main(String[] args) {
 
         File runInfo = new File("/tmp", "RunInfo.xml");
-        File sampleSheet = new File("/tmp", "171218_UNC31-K00269_0104_AHNCH5BBXX.csv");
+        File sampleSheet = new File("/tmp", "180405_UNC31-K00269_0122_AHTV3MBBXX.csv");
+        // File sampleSheet = new File("/tmp", "171218_UNC31-K00269_0104_AHNCH5BBXX.csv");
+
         CreateBasesMaskCallable runnable = new CreateBasesMaskCallable(runInfo, sampleSheet);
         System.out.println(runnable.call());
 
