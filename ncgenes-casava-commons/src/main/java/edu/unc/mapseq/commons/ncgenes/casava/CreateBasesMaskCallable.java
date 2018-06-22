@@ -87,13 +87,9 @@ public class CreateBasesMaskCallable implements Callable<String> {
                     }
                 }
 
-                int indexedReadCount = readIndexNodes.size();
+                int indexedReadNodesCount = readIndexNodes.size();
 
-                if (indexedReadCount == 2 && readIndex2Length == null) {
-                    indexedReadCount = 1;
-                }
-
-                switch (indexedReadCount) {
+                switch (indexedReadNodesCount) {
                     case 2:
 
                         Node readNode = readIndexNodes.get(0);
@@ -111,6 +107,10 @@ public class CreateBasesMaskCallable implements Callable<String> {
                         nodeAttributes = readNode.getAttributes();
                         numCycles = nodeAttributes.getNamedItem("NumCycles").getTextContent();
                         cycleCount = Integer.valueOf(numCycles);
+
+                        if (readIndex2Length == null) {
+                            readIndex2Length = readIndex1Length;
+                        }
 
                         if (readIndex2Length.equals(cycleCount)) {
                             sb.append(String.format("I%d,", readIndex2Length));
