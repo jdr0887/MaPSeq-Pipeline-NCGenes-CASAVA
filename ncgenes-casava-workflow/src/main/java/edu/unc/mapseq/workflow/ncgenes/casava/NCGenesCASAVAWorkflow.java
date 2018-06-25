@@ -24,7 +24,6 @@ import org.renci.jlrm.condor.CondorJobEdge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.unc.mapseq.commons.ncgenes.casava.CreateBasesMaskCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.FindReadCountCallable;
 import edu.unc.mapseq.commons.ncgenes.casava.RegisterToIRODSRunnable;
 import edu.unc.mapseq.commons.ncgenes.casava.SaveDemultiplexedStatsAttributesRunnable;
@@ -166,9 +165,9 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
 
                 if (MapUtils.isNotEmpty(laneMap)) {
 
-                    File runInfoXmlFile = new File(flowcellStagingDir, "RunInfo.xml");
-                    String basesMask = Executors.newSingleThreadExecutor()
-                            .submit(new CreateBasesMaskCallable(runInfoXmlFile, sampleSheetFile)).get();
+                    // File runInfoXmlFile = new File(flowcellStagingDir, "RunInfo.xml");
+                    // String basesMask = Executors.newSingleThreadExecutor()
+                    // .submit(new CreateBasesMaskCallable(runInfoXmlFile, sampleSheetFile)).get();
 
                     for (Integer laneIndex : laneMap.keySet()) {
 
@@ -177,7 +176,8 @@ public class NCGenesCASAVAWorkflow extends AbstractSequencingWorkflow {
                         CondorJobBuilder builder = WorkflowJobFactory.createJob(++count, BCL2FastqCLI.class, attempt.getId())
                                 .numberOfProcessors(5).siteName(siteName);
                         builder.addArgument(BCL2FastqCLI.INPUTDIR, baseCallsDir.getAbsolutePath())
-                                .addArgument(BCL2FastqCLI.IGNOREMISSINGBCLS).addArgument(BCL2FastqCLI.USESBASESMASK, basesMask)
+                                .addArgument(BCL2FastqCLI.IGNOREMISSINGBCLS)// .addArgument(BCL2FastqCLI.USESBASESMASK,
+                                                                            // basesMask)
                                 .addArgument(BCL2FastqCLI.TILES, String.format("s_%d_*", laneIndex))
                                 .addArgument(BCL2FastqCLI.OUTPUTDIR, unalignedDir.getAbsolutePath())
                                 .addArgument(BCL2FastqCLI.LOADINGTHREADS, "4").addArgument(BCL2FastqCLI.PROCESSINGTHREADS, "4")
